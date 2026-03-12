@@ -248,3 +248,173 @@ def parse_fits_table(header, raw_bytes):
 
 def find_solexs_files(date_str=None):
     """Find extracted SoLEXS FITS files for a given date (YYYYMMDD) or latest.
+    Returns (date_str, sdd1_path, sdd2_path) where individual paths may be None.
+    """
+    base = os.path.join('data', 'raw', 'solexs')
+
+    if date_str:
+        date_dir = os.path.join(base, date_str)
+        if not os.path.exists(date_dir):
+            return None, None, None
+    else:
+        dates = sorted([d for d in os.listdir(base) if d.isdigit() and os.path.isdir(os.path.join(base, d))])
+        if not dates:
+            return None, None, None
+        date_str = dates[-1]
+        date_dir = os.path.join(base, date_str)
+
+    # Find SLX session directory inside date_dir
+    session_dir = None
+    for d in os.listdir(date_dir):
+        full = os.path.join(date_dir, d)
+        if os.path.isdir(full) and 'SLX' in d:
+            session_dir = full
+            break
+
+    if not session_dir:
+        return None, None, None
+
+    # Try finding SDD1 and SDD2 light curves independently (either may be missing)
+    sdd1_path = None
+    sdd2_path = None
+    for ext in ['', '.fits']:
+        s1 = os.path.join(session_dir, 'SDD1', f'AL1_SOLEXS_{date_str}_SDD1_L1.lc{ext}')
+        s2 = os.path.join(session_dir, 'SDD2', f'AL1_SOLEXS_{date_str}_SDD2_L1.lc{ext}')
+        if not sdd1_path and os.path.exists(s1):
+            sdd1_path = s1
+        if not sdd2_path and os.path.exists(s2):
+            sdd2_path = s2
+
+    if sdd1_path or sdd2_path:
+        return date_str, sdd1_path, sdd2_path
+
+    return None, None, None
+
+
+def load_solexs_lc(filepath):
+    """Load SoLEXS light curve FITS and return list of {time, counts}."""
+    if filepath.endswith('.gz'):
+        f = gzip.open(filepath, 'rb')
+    else:
+        f = open(filepath, 'rb')
+
+    try:
+        # Skip primary HDU (HDU 0)
+        h0, _ = read_fits_header_data(f)
+        # Read table HDU (HDU 1)
+        h1, raw = read_fits_header_data(f)
+        records = parse_fits_table(h1, raw)
+    finally:
+        f.close()
+
+    # Real SoLEXS LC has columns: TIME (MJD or s), COUNTS (cts)
+    # Map to our schema
+    # Debug: show actual column names present
+    if records:
+        col_names = list(records[0].keys())
+        print(f"    SoLEXS LC columns: {col_names}")
+        if records[0]:
+            print(f"    First rec: {[(k, v) for k, v in list(records[0].items())[:2]]}")
+
+    result = []
+    for r in records:
+        # TIME could be MJD or seconds; try common column names
+        time_val = r.get('TIME', r.get('MJD', r.get('TSTART', r.get('time', 0))))
+        counts = r.get('COUNTS', r.get('CTR', r.get('RATE', 0)))
+
+        # Skip rows with NaN or unreasonable values
+        if isinstance(time_val, (int, float)) and (time_val != time_val or abs(time_val) > 1e12):
+            continue
+        if isinstance(counts, float) and (counts != counts or counts < 0):
+            counts = 0.0
+        if isinstance(counts, int):
+            counts = float(counts)
+
+        # Convert MJD to Unix timestamp if needed
+        if time_val > 50000 and time_val < 200000:  # Likely MJD (not seconds)
+            # MJD -> Unix: (MJD - 40587) * 86400
+            # 40587 = 2440587.5 - 2400000.5 (offset between MJD and Unix)
+            unix_time = (time_val - 40587.0) * 86400.0
+        elif time_val > 1000000000 and time_val < 2000000000:
+            # Already in Unix seconds
+            unix_time = time_val
+        elif time_val > 50000:
+            # Could still be MJD
+            unix_time = (time_val - 40587.0) * 86400.0
+        else:
+            unix_time = time_val
+
+        # Sanity check: reasonable unix timestamps for 2024-2026
+        if unix_time < 1.7e9 or unix_time > 1.8e9:
+            continue
+
+        result.append({
+            'time': int(unix_time),
+            'counts': float(counts)
+        })
+
+    return result
+
+
+def process_solexs_to_flux(records_sdd1, records_sdd2):
+    """Combine SDD1 and SDD2 SoLEXS light curves into unified flux."""
+    from collections import defaultdict
+
+    combined = defaultdict(float)
+    for r in records_sdd1 + records_sdd2:
+        combined[r['time']] += r['counts']
+
+    # Convert counts to physical flux (soft X-ray)
+    # SoLEXS counts -> flux using calibration factor
+    # ~1 count/sec ≈ 1.5e-8 W/m² (calibration from SoLEXS specs)
+    flux_list = []
+    for t in sorted(combined.keys()):
+        counts = combined[t]
+        flux_list.append({
+            'time': t,
+            'soft_flux': counts * 1.5e-8,
+            'counts': counts
+        })
+
+    return flux_list
+
+
+# ==========================================
+# Aditya-L1 HEL1OS Ingestion
+# ==========================================
+
+def find_helios_files(date_str=None):
+    """Find extracted HEL1OS FITS files."""
+    base = os.path.join('data', 'raw', 'helios')
+
+    if date_str:
+        date_dir = os.path.join(base, date_str)
+        if not os.path.exists(date_dir):
+            return None, None
+    else:
+        dates = sorted([d for d in os.listdir(base) if d.isdigit() and os.path.isdir(os.path.join(base, d))])
+        if not dates:
+            return None, None
+        date_str = dates[-1]
+        date_dir = os.path.join(base, date_str)
+
+    # Find the HEL1OS session directory (nested: YYYY/MM/DD/HLS_...)
+    for root, dirs, files in os.walk(date_dir):
+        for d in dirs:
+            if d.startswith('HLS_'):
+                return date_str, os.path.join(root, d)
+        # Limit depth for performance
+        if root.count(os.sep) - date_dir.count(os.sep) > 4:
+            break
+
+    return None, None
+
+
+def load_helios_lightcurve(filepath):
+    """Load HEL1OS light curve FITS (CZT or CdTe) and return list of records."""
+    if not os.path.exists(filepath):
+        return []
+
+    f = open(filepath, 'rb')
+    try:
+        h0, _ = read_fits_header_data(f)
