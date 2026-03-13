@@ -418,3 +418,163 @@ def load_helios_lightcurve(filepath):
     f = open(filepath, 'rb')
     try:
         h0, _ = read_fits_header_data(f)
+        h1, raw = read_fits_header_data(f)
+        records = parse_fits_table(h1, raw)
+    finally:
+        f.close()
+
+    if records:
+        print(f"    HEL1OS LC columns: {list(records[0].keys())}")
+
+    result = []
+    for r in records:
+        # HEL1OS LC columns: MJD (D), ISOT (30A), CTR (cts/sec), STAT_ERR (D)
+        mjd = r.get('MJD', r.get('TIME', r.get('TSTART', 0)))
+        ctr = r.get('CTR', r.get('COUNTS', r.get('RATE', 0)))
+        stat_err = r.get('STAT_ERR', 0)
+
+        # Skip bad rows
+        if isinstance(mjd, (int, float)) and (mjd != mjd or abs(mjd) > 1e12):
+            continue
+        if isinstance(ctr, float) and (ctr != ctr or ctr < 0):
+            ctr = 0.0
+
+        if mjd > 50000 and mjd < 200000:
+            unix_time = (mjd - 40587.0) * 86400.0
+        elif mjd > 1000000000 and mjd < 2000000000:
+            unix_time = mjd
+        elif mjd > 50000:
+            unix_time = (mjd - 40587.0) * 86400.0
+        else:
+            unix_time = mjd
+
+        if unix_time < 1.7e9 or unix_time > 1.85e9:
+            continue
+
+        result.append({
+            'time': int(unix_time),
+            'ctr': float(ctr),
+            'stat_err': float(stat_err)
+        })
+
+    return result
+
+
+def process_helios(session_dir):
+    """Load HEL1OS data from all 4 detectors and merge into unified hard X-ray channels."""
+    detectors = {
+        'cdte1': os.path.join(session_dir, 'cdte', 'lightcurve_cdte1.fits'),
+        'cdte2': os.path.join(session_dir, 'cdte', 'lightcurve_cdte2.fits'),
+        'czt1':  os.path.join(session_dir, 'czt',  'lightcurve_czt1.fits'),
+        'czt2':  os.path.join(session_dir, 'czt',  'lightcurve_czt2.fits'),
+    }
+
+    # Load all detector light curves
+    lc_data = {}
+    for name, path in detectors.items():
+        lc_data[name] = load_helios_lightcurve(path)
+
+    # Merge by timestamp, summing CTR for CdTe (lower energy) and CZT (higher energy)
+    from collections import defaultdict
+    merged = defaultdict(lambda: {'cdte_ctr': 0.0, 'czt_ctr': 0.0})
+
+    for name, records in lc_data.items():
+        for r in records:
+            t = r['time']
+            if 'cdte' in name:
+                merged[t]['cdte_ctr'] += r['ctr']
+            else:
+                merged[t]['czt_ctr'] += r['ctr']
+
+    # Map to pipeline schema:
+    # CdTe (~5-30 keV) -> proxy for 15-25 keV
+    # CZT (~20-150 keV) -> proxy for 25-50 and 50-100 keV
+    # TODO: calibrate these scaling factors using HEL1OS response matrices
+    # from the PRADAN data release for accurate energy-band mapping
+    result = []
+    for t in sorted(merged.keys()):
+        cdte = max(0.1, merged[t]['cdte_ctr'])
+        czt = max(0.1, merged[t]['czt_ctr'])
+
+        # CdTe count rate scales to hardness proxy
+        # CZT count rate splits into two hard channels
+        hard_main = czt * 0.15 + cdte * 0.02  # Rough scaling to match NOAA-like units
+
+        result.append({
+            'time': t,
+            'hard_15_25': cdte * 0.8,      # CdTe proxy for lower hard band
+            'hard_25_50': hard_main,         # Combined mid band
+            'hard_50_100': czt * 0.03,       # CZT proxy for upper hard band
+        })
+
+    return result
+
+
+# ==========================================
+# Main Data Loading Functions
+# ==========================================
+
+def load_aditya_data(date_str=None, sample_every=1):
+    """Main entry point: load real Aditya-L1 data for a given date or latest.
+    
+    Args:
+        date_str: YYYYMMDD date or None for latest
+        sample_every: Load every Nth record (higher = faster for API init)
+    """
+    print(f"Loading real Aditya-L1 data (date: {date_str or 'latest'}, sample_every={sample_every})...")
+
+    # 1. Load SoLEXS
+    found_date, sdd1_path, sdd2_path = find_solexs_files(date_str)
+    if not found_date:
+        print("  No SoLEXS data found.")
+        return None
+
+    print(f"  Found SoLEXS data: {found_date}")
+    sdd1 = load_solexs_lc(sdd1_path) if sdd1_path and os.path.exists(sdd1_path) else []
+    sdd2 = load_solexs_lc(sdd2_path) if sdd2_path and os.path.exists(sdd2_path) else []
+
+    if not sdd1 and not sdd2:
+        print("  SoLEXS data is empty.")
+        return None
+
+    soft_flux_data = process_solexs_to_flux(sdd1, sdd2)
+    
+    # Apply sampling if requested
+    if sample_every > 1 and soft_flux_data:
+        soft_flux_data = soft_flux_data[::sample_every]
+        
+    print(f"  SoLEXS: {len(soft_flux_data)} points (SDD1: {len(sdd1)}, SDD2: {len(sdd2)})")
+
+    # 2. Load HEL1OS (same date)
+    helios_date, session_dir = find_helios_files(found_date)
+    if not helios_date:
+        print("  No HEL1OS data found for this date. SoLEXS-only mode.")
+        hard_data = []
+    else:
+        hard_data = process_helios(session_dir)
+        # Also sample HEL1OS to match
+        if sample_every > 1 and hard_data:
+            hard_data = hard_data[::sample_every]
+        print(f"  HEL1OS: {len(hard_data)} points")
+
+    # 3. Align and merge (or return SoLEXS-only if no HEL1OS)
+    if hard_data:
+        return align_al1_data(soft_flux_data, hard_data)
+    else:
+        # Return SoLEXS-only data
+        return [{'time': p['time'], 'soft_flux': p['soft_flux'],
+                 'hard_15_25': 0, 'hard_25_50': 0, 'hard_50_100': 0,
+                 'data_gap': True}
+                for p in soft_flux_data]
+
+
+def align_al1_data(soft_data, hard_data):
+    """Align SoLEXS and HEL1OS data by timestamp, filling gaps."""
+    if not soft_data or not hard_data:
+        return []
+
+    soft_map = {r['time']: r for r in soft_data}
+    hard_map = {r['time']: r for r in hard_data}
+
+    t_min = min(min(soft_map.keys()), min(hard_map.keys()))
+    t_max = max(max(soft_map.keys()), max(hard_map.keys()))
