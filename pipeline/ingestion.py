@@ -578,3 +578,103 @@ def align_al1_data(soft_data, hard_data):
 
     t_min = min(min(soft_map.keys()), min(hard_map.keys()))
     t_max = max(max(soft_map.keys()), max(hard_map.keys()))
+
+    aligned = []
+    last_soft_flux = 5e-8
+    last_soft_time = -99999
+    last_h15 = 3.0
+    last_h25 = 3.0
+    last_h50 = 0.5
+
+    for t in range(t_min, t_max + 1):
+        s = soft_map.get(t)
+        h = hard_map.get(t)
+
+        if s:
+            last_soft_flux = s['soft_flux']
+            last_soft_time = t
+            soft_ok = True
+        else:
+            soft_ok = (t - last_soft_time <= 70)
+
+        if h:
+            last_h15 = h['hard_15_25']
+            last_h25 = h['hard_25_50']
+            last_h50 = h['hard_50_100']
+            hard_ok = True
+        else:
+            hard_ok = False  # Use cached values but flag gap
+
+        data_gap = not (soft_ok and hard_ok)
+
+        aligned.append({
+            'time': t,
+            'soft_flux': last_soft_flux,
+            'hard_15_25': last_h15,
+            'hard_25_50': last_h25,
+            'hard_50_100': last_h50,
+            'data_gap': data_gap
+        })
+
+    return aligned
+
+
+# ==========================================
+# Legacy Support (keep existing functions for mock/replay)
+# ==========================================
+
+# JSON path for backward compatibility with generated mock data
+def load_helios_json(filepath):
+    if not os.path.exists(filepath):
+        filepath = filepath.replace(".fits", ".json")
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+    records = []
+    for r in data:
+        records.append({
+            'time': int(round(r['TIME'])),
+            'hard_15_25': float(r['RATE_15_25keV']),
+            'hard_25_50': float(r['RATE_25_50keV']),
+            'hard_50_100': float(r['RATE_50_100keV'])
+        })
+    return records
+
+
+def load_solexs_json(filepath):
+    if not os.path.exists(filepath):
+        filepath = filepath.replace(".fits", ".json")
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+    time_counts = {}
+    for r in data:
+        t = int(round(r['TIME']))
+        time_counts[t] = time_counts.get(t, 0.0) + float(r['COUNTS'])
+    records = []
+    for t, counts in time_counts.items():
+        records.append({
+            'time': t,
+            'soft_flux': counts * 1.5e-8
+        })
+    return sorted(records, key=lambda x: x['time'])
+
+
+def align_telemetry_json(solexs_list, helios_list):
+    if not solexs_list or not helios_list:
+        return []
+    helios_map = {r['time']: r for r in helios_list}
+    solexs_map = {r['time']: r for r in solexs_list}
+    t_min = min(min(helios_map.keys()), min(solexs_map.keys()))
+    t_max = max(max(helios_map.keys()), max(solexs_map.keys()))
+
+    aligned = []
+    last_hard_15_25 = 3.0
+    last_hard_25_50 = 3.0
+    last_hard_50_100 = 0.5
+    last_soft_flux = 5e-8
+    last_soft_seen_time = -99999
+
+    for t in range(t_min, t_max + 1):
+        h_rec = helios_map.get(t)
+        s_rec = solexs_map.get(t)
+
+        if h_rec:
