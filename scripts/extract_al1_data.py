@@ -73,3 +73,48 @@ def extract_solexs():
                         try:
                             with gzip.open(gz_file, 'rb') as fin:
                                 with open(fits_file, 'wb') as fout:
+                                    shutil.copyfileobj(fin, fout)
+                            os.remove(gz_file)
+                            print(f"      Decompressed: {os.path.basename(gz_file)}")
+                        except Exception as e:
+                            print(f"      Decompress error {gz_file}: {e}")
+
+        except Exception as e:
+            print(f"    Error processing {outer_zip}: {e}")
+
+    print(f"  Done. SoLEXS data in: {SOLEXS_OUT}")
+
+
+def extract_helios():
+    """Extract HEL1OS zip files — flatten into organized per-day directories."""
+    print("\n=== Extracting HEL1OS Data ===")
+    os.makedirs(HELIOS_OUT, exist_ok=True)
+
+    outer_zips = sorted(glob.glob(str(RAW_DIR / "helios" / "hel1os_*.zip")))
+
+    if not outer_zips:
+        print("No HEL1OS outer zip files found. Skipping.")
+        return
+
+    for outer_zip in outer_zips:
+        print(f"  Processing: {os.path.basename(outer_zip)}")
+        try:
+            with zipfile.ZipFile(outer_zip, 'r') as oz:
+                for inner_name in oz.namelist():
+                    if not inner_name.endswith('.zip') or not inner_name.startswith('HLS_'):
+                        continue
+
+                    # Extract date from: HLS_YYYYMMDD_HHMMSS_XXXXXsec_lev1_V111.zip
+                    parts = inner_name.split('_')
+                    if len(parts) >= 2:
+                        date_str = parts[1]  # YYYYMMDD
+                    else:
+                        continue
+
+                    date_dir = HELIOS_OUT / date_str
+                    if date_dir.exists():
+                        continue
+
+                    os.makedirs(date_dir, exist_ok=True)
+
+                    # Extract inner zip
