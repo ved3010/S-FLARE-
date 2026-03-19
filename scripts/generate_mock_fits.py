@@ -63,3 +63,68 @@ def generate_mock_data():
             counts_base = flux / 1.5e-8
             for chan in range(1, 6):
                 chan_scale = math.exp(-(chan - 1) * 0.4)
+                c_val = counts_base * chan_scale + random.gauss(0, 0.2)
+                solexs_records.append({
+                    'TIME': float(t_val),
+                    'CHANNEL': int(chan),
+                    'COUNTS': float(max(0.1, c_val))
+                })
+            last_written = i
+            
+    # Write JSON telemetry fallbacks (portable)
+    os.makedirs("data/raw/solexs", exist_ok=True)
+    os.makedirs("data/raw/helios", exist_ok=True)
+    
+    helios_records = []
+    for i in range(duration_sec):
+        helios_records.append({
+            'TIME': float(base_time + i),
+            'RATE_15_25keV': float(hard_rate_15_25[i]),
+            'RATE_25_50keV': float(hard_rate_25_50[i]),
+            'RATE_50_100keV': float(hard_rate_50_100[i])
+        })
+        
+    with open("data/raw/helios/helios_20240915_level1.json", "w") as f:
+        json.dump(helios_records, f, indent=2)
+        
+    with open("data/raw/solexs/solexs_20240915_level2.json", "w") as f:
+        json.dump(solexs_records, f, indent=2)
+        
+    print("Saved JSON telemetry streams successfully!")
+    
+    # Try FITS write if astropy is available
+    try:
+        from astropy.io import fits
+        from astropy.table import Table
+        
+        # HEL1OS FITS
+        times = [r['TIME'] for r in helios_records]
+        r15 = [r['RATE_15_25keV'] for r in helios_records]
+        r25 = [r['RATE_25_50keV'] for r in helios_records]
+        r50 = [r['RATE_50_100keV'] for r in helios_records]
+        
+        t_h = Table([times, r15, r25, r50], names=('TIME', 'RATE_15_25keV', 'RATE_25_50keV', 'RATE_50_100keV'))
+        hdu_h = fits.BinTableHDU(t_h, name='LIGHTCURVE')
+        pri_h = fits.PrimaryHDU()
+        pri_h.header['TELESCOP'] = 'Aditya-L1'
+        pri_h.header['INSTRUME'] = 'HEL1OS'
+        fits.HDUList([pri_h, hdu_h]).writeto('data/raw/helios/helios_20240915_level1.fits', overwrite=True)
+        
+        # SoLEXS FITS
+        s_times = [r['TIME'] for r in solexs_records]
+        s_chans = [r['CHANNEL'] for r in solexs_records]
+        s_counts = [r['COUNTS'] for r in solexs_records]
+        
+        t_s = Table([s_times, s_chans, s_counts], names=('TIME', 'CHANNEL', 'COUNTS'))
+        hdu_s = fits.BinTableHDU(t_s, name='SPECTRUM')
+        pri_s = fits.PrimaryHDU()
+        pri_s.header['TELESCOP'] = 'Aditya-L1'
+        pri_s.header['INSTRUME'] = 'SoLEXS'
+        fits.HDUList([pri_s, hdu_s]).writeto('data/raw/solexs/solexs_20240915_level2.fits', overwrite=True)
+        
+        print("Saved FITS files successfully!")
+    except Exception as e:
+        print("Note: Skipping FITS export because astropy/numpy C-extensions are not fully loaded. Backend will stream from JSON fallbacks.")
+
+if __name__ == "__main__":
+    generate_mock_data()
