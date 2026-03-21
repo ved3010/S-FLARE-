@@ -78,3 +78,83 @@ class AlertAggregator:
         hr_zscore = float(features[4])
         zscore_thresh = 3.0
         
+        # Calculate flux class: A, B, C, M, X
+        if soft_flux >= 1e-4:
+            f_class = f"X{(soft_flux / 1e-4):.1f}"
+            c_phase = "ACTIVE"
+        elif soft_flux >= 1e-5:
+            f_class = f"M{(soft_flux / 1e-5):.1f}"
+            c_phase = "ACTIVE"
+        elif soft_flux >= 1e-6:
+            f_class = f"C{(soft_flux / 1e-6):.1f}"
+            c_phase = "ACTIVE"
+        elif soft_flux >= 1e-7:
+            f_class = f"B{(soft_flux / 1e-7):.1f}"
+            c_phase = "QUIET"
+        else:
+            f_class = f"A{(soft_flux / 1e-8):.1f}"
+            c_phase = "QUIET"
+            
+        current_phase = "Quiet Sun"
+        state_color = "#2ECC71"
+        
+        if nowcast_class == "FLARE_ONSET":
+            current_phase = "Impulsive Onset"
+            state_color = "#F1C40F"
+        elif nowcast_class == "FLARE_PEAK":
+            current_phase = "Peak Flare Phase"
+            state_color = "#E74C3C"
+        elif nowcast_class == "FLARE_DECAY":
+            current_phase = "Gradual Decay"
+            state_color = "#E74C3C"
+            
+        threshold_broken = (hr_zscore > zscore_thresh) and (soft_flux > 1.5e-7)
+        if threshold_broken:
+            if not self.active_flare:
+                self.active_flare = {
+                    'onset': timestamp_utc,
+                    'class': f_class,
+                    'peak_flux': soft_flux
+                }
+                self.log_alert('NOWCAST', 'RED', f"Flare onset confirmed - {f_class} detected. Spectral threshold broken (>3σ).", Class=f_class)
+            else:
+                self.active_flare['peak_flux'] = max(self.active_flare['peak_flux'], soft_flux)
+        else:
+            if self.active_flare:
+                self.log_alert('NOWCAST', 'GREEN', f"Flare event {self.active_flare['class']} recovered. Returning to baseline.", Class=self.active_flare['class'])
+                self.active_flare = None
+
+        # -------------------------------------------------------------
+        # Calculate 1-MIN and 2-MIN SHORT-TERM FORECASTS
+        # -------------------------------------------------------------
+        base_dt = datetime.fromisoformat(timestamp_utc.replace("Z", "+00:00"))
+        t_1min_str = (base_dt + timedelta(seconds=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        t_2min_str = (base_dt + timedelta(seconds=120)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # 1-minute forecast (derived from short-term sequence gradient)
+        prob_1min_float = max(0.01, min(0.99, forecast_prob * 0.95 + (0.35 if hr_slope > 0.0001 else 0.0)))
+        prob_1min_pct = int(prob_1min_float * 100)
+        status_1min, color_1min = self._get_status_from_prob(prob_1min_pct)
+
+        # 2-minute forecast (extrapolated sequence horizon)
+        prob_2min_float = max(0.01, min(0.99, forecast_prob * 1.05 + (0.45 if hr_zscore > 2.0 else 0.0)))
+        prob_2min_pct = int(prob_2min_float * 100)
+        status_2min, color_2min = self._get_status_from_prob(prob_2min_pct)
+
+        # -------------------------------------------------------------
+        # Early Warning Alert System (Threshold Trigger: >60%)
+        # -------------------------------------------------------------
+        if prob_1min_pct > 60 and self.last_1min_prob <= 60:
+            self.log_alert('WARNING', 'RED', f"🚨 HIGH SOLAR FLARE WARNING: {prob_1min_pct}% probability predicted for 1-minute horizon ({t_1min_str}).", horizon="1 Minute", prob=prob_1min_pct)
+        if prob_2min_pct > 75 and self.last_2min_prob <= 75:
+            self.log_alert('WARNING', 'RED', f"🚨 HIGH SOLAR FLARE WARNING: {prob_2min_pct}% probability predicted for 2-minute horizon ({t_2min_str}).", horizon="2 Minutes", prob=prob_2min_pct)
+
+        self.last_1min_prob = prob_1min_pct
+        self.last_2min_prob = prob_2min_pct
+        
+        # Hardness ratio pre-flare signal
+        hr_pre = hr_val > 0.06 and hr_slope > 0.0001
+        if hr_pre and not self.last_hr_pre_flare:
+            self.log_alert('FORECAST', 'YELLOW', f"Spectral hardness ratio exceeded warning threshold (HR: {hr_val:.3f}). Pre-flare signature detected.", HR=hr_val)
+        self.last_hr_pre_flare = hr_pre
+        
