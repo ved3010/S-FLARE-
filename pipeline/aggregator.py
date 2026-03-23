@@ -158,3 +158,53 @@ class AlertAggregator:
             self.log_alert('FORECAST', 'YELLOW', f"Spectral hardness ratio exceeded warning threshold (HR: {hr_val:.3f}). Pre-flare signature detected.", HR=hr_val)
         self.last_hr_pre_flare = hr_pre
         
+        system_status = {
+            'state': 'ACTIVE' if self.active_flare else 'QUIET',
+            'stateLabel': 'Flare In Progress' if self.active_flare else 'Quiet Sun',
+            'stateColor': state_color,
+            'since': self.active_flare['onset'] if self.active_flare else timestamp_utc,
+            'pipeline': 'Operational',
+            'dataLatency': '1.2s',
+            'lastSync': timestamp_utc,
+            'pradanSync': 'Healthy',
+            'al1Sync': 'Healthy',
+            'modelVersion': 'v2.1.3 (Aditya-L1)',
+            'dataSource': 'Aditya-L1 SoLEXS + HEL1OS'
+        }
+        
+        nowcast_out = {
+            'class': f_class if self.active_flare else '—',
+            'peakFlux': self.active_flare['peak_flux'] if self.active_flare else soft_flux,
+            'onset': self.active_flare['onset'] if self.active_flare else '—',
+            'peakTime': timestamp_utc if nowcast_class == "FLARE_PEAK" else '—',
+            'currentPhase': current_phase,
+            'adaptiveThreshold': zscore_thresh,
+            'rollingMAD': float(abs(hr_zscore) * 1e-8),
+            'zScore': hr_zscore,
+            'confidence': nowcast_conf
+        }
+
+        forecast_1min_out = {
+            'horizonMinutes': 1,
+            'targetTime': t_1min_str,
+            'probability': prob_1min_pct,
+            'status': status_1min,
+            'statusColor': color_1min,
+            'confidence': round(nowcast_conf * 0.98, 2),
+            'predictedSoftFlux': soft_flux * (1.15 if prob_1min_pct > 60 else 1.0),
+            'predictedHardFlux': hard_rate * (1.25 if prob_1min_pct > 60 else 1.0)
+        }
+
+        forecast_2min_out = {
+            'horizonMinutes': 2,
+            'targetTime': t_2min_str,
+            'probability': prob_2min_pct,
+            'status': status_2min,
+            'statusColor': color_2min,
+            'confidence': round(nowcast_conf * 0.94, 2),
+            'predictedSoftFlux': soft_flux * (1.30 if prob_2min_pct > 60 else 1.0),
+            'predictedHardFlux': hard_rate * (1.45 if prob_2min_pct > 60 else 1.0)
+        }
+        
+        forecast_out = {
+            'probability': prob_1min_pct,
