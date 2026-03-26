@@ -123,3 +123,43 @@ def compute_latest_features_pure(history_buffer):
         for idx, t in enumerate(times):
             if t >= cutoff:
                 indices.append(idx)
+        return indices
+
+    # 4. hr_mean_10m (10m = 600s window)
+    idx_10m = get_indices_in_window(600)
+    hr_mean = sum(hr_history[i] for i in idx_10m) / len(idx_10m) if idx_10m else hr_curr
+    
+    # 5. hr_slope_10m (slope over 10m window)
+    if len(idx_10m) > 5:
+        # Simple difference divided by time interval
+        i_old = idx_10m[0]
+        dt = t_curr - times[i_old]
+        hr_slope = (hr_curr - hr_history[i_old]) / dt if dt > 0 else 0.0
+    else:
+        hr_slope = 0.0
+        
+    # 6. hr_zscore (deviation from 30-min window = 1800s)
+    idx_30m = get_indices_in_window(1800)
+    if len(idx_30m) > 10:
+        hr_slice = [hr_history[i] for i in idx_30m]
+        mean_30m = sum(hr_slice) / len(hr_slice)
+        variance = sum((val - mean_30m) ** 2 for val in hr_slice) / len(hr_slice)
+        std_30m = math.sqrt(variance)
+        hr_zscore = (hr_curr - mean_30m) / max(1e-5, std_30m)
+    else:
+        hr_zscore = 0.0
+        
+    # 7. flux_derivative_60s (derivative of soft flux over 60s)
+    idx_60s = get_indices_in_window(60)
+    if len(idx_60s) > 2:
+        i_old = idx_60s[0]
+        dt = t_curr - times[i_old]
+        flux_derivative = (soft_curr - soft_history[i_old]) / dt if dt > 0 else 0.0
+    else:
+        flux_derivative = 0.0
+        
+    # 8. neupert_residual
+    expected_hard = flux_derivative * 1.2e10
+    neupert_residual = abs(hard_rate - expected_hard)
+    
+    # 9. time_since_last_c_flare and solar_activity_index
