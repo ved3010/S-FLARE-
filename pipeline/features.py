@@ -163,3 +163,18 @@ def compute_latest_features_pure(history_buffer):
     neupert_residual = abs(hard_rate - expected_hard)
     
     # 9. time_since_last_c_flare and solar_activity_index
+    c_flare_threshold = 1e-6
+    last_c_flare_t = -999999.0
+    flare_onsets = []
+    
+    # Scan history to find all C-flares
+    for idx, s_val in enumerate(soft_history):
+        t_val = times[idx]
+        if s_val >= c_flare_threshold:
+            last_c_flare_t = t_val
+            # Count separate flares (30m = 1800s separation)
+            if not flare_onsets or (t_val - flare_onsets[-1] > 1800):
+                flare_onsets.append(t_val)
+                
+    time_since_c = 120.0
+    if last_c_flare_t > 0:
