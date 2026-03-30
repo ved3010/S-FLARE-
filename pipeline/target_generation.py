@@ -38,3 +38,28 @@ def create_short_term_targets(
         
         # 1-minute horizon window: (t_curr + 30, t_curr + 60]
         idx_1min = np.where((times > t_curr + 30) & (times <= t_curr + 60))[0]
+        if len(idx_1min) > 0:
+            max_f1 = np.max(fluxes[idx_1min])
+            t1_flux[i] = max_f1
+            t1_class[i] = int(max_f1 >= c_flare_threshold)
+
+        # 2-minute horizon window: (t_curr + 90, t_curr + 120]
+        idx_2min = np.where((times > t_curr + 90) & (times <= t_curr + 120))[0]
+        if len(idx_2min) > 0:
+            max_f2 = np.max(fluxes[idx_2min])
+            t2_flux[i] = max_f2
+            t2_class[i] = int(max_f2 >= c_flare_threshold)
+
+    df['target_1min_class'] = t1_class
+    df['target_2min_class'] = t2_class
+    df['target_1min_flux'] = t1_flux
+    df['target_2min_flux'] = t2_flux
+
+    return df
+
+
+def create_sliding_windows(
+    features_matrix: np.ndarray,
+    targets_class: np.ndarray,
+    targets_flux: np.ndarray,
+    window_steps: int = 60
