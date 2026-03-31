@@ -63,3 +63,13 @@ def create_sliding_windows(
     targets_class: np.ndarray,
     targets_flux: np.ndarray,
     window_steps: int = 60
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Creates time-series sliding windows for sequence models (LSTM/TCN).
+    Returns X_seq of shape (num_samples, window_steps, num_features), y_class, y_flux.
+    """
+    num_samples = len(features_matrix) - window_steps + 1
+    if num_samples <= 0:
+        return np.array([]), np.array([]), np.array([])
+
+    num_features = features_matrix.shape[1]
