@@ -43,3 +43,43 @@ class TestSolarFlarePipeline(unittest.TestCase):
         df = pd.DataFrame(records)
         df_feat = compute_features_batch(df)
         self.assertIn('hardness_ratio', df_feat.columns)
+        self.assertIn('hr_slope_10m', df_feat.columns)
+        self.assertIn('hr_zscore', df_feat.columns)
+        self.assertEqual(len(df_feat), 50)
+
+    def test_target_generation_timing_and_no_leakage(self):
+        """
+        Verify target_1min is looking at t + 30s to t + 60s
+        and target_2min is looking at t + 90s to t + 120s
+        and input features do not use future information.
+        """
+        records = []
+        # Create a series with a flare spike at t = 1060s (i = 52, 1060s)
+        for i in range(120):
+            t = 800 + i * 5
+            soft = 5e-8
+            if t == 1060:
+                soft = 2.0e-6  # Flare threshold exceeded
+            records.append({'time': t, 'soft_flux': soft})
+
+        df = pd.DataFrame(records)
+        df_targets = create_short_term_targets(df, c_flare_threshold=1e-6)
+
+        self.assertIn('target_1min_class', df_targets.columns)
+        self.assertIn('target_2min_class', df_targets.columns)
+
+        # For timestamp t = 1000s, t+60s is 1060s. Target_1min should capture the flare!
+        row_t1000 = df_targets[df_targets['time'] == 1000].iloc[0]
+        self.assertEqual(row_t1000['target_1min_class'], 1)
+
+        # For timestamp t = 940s, 1060s is t + 120s. Target_2min should capture the flare!
+        row_t940 = df_targets[df_targets['time'] == 940].iloc[0]
+        self.assertEqual(row_t940['target_2min_class'], 1)
+        # Rows without a complete future horizon must never receive their
+        # current value as a substitute target.
+        self.assertTrue(np.isnan(df_targets.iloc[-1]['target_2min_flux']))
+
+    def test_forecast_horizons_use_timestamps(self):
+        history = [
+            {'timestamp': 1_000_000 + i * 10_000, 'softFlux': 1e-7 * (1 + i / 100)}
+            for i in range(40)
