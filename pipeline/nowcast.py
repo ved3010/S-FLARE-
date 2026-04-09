@@ -48,3 +48,38 @@ def py_conv1d(x, w, b):
 
 def py_maxpool1d(x, pool_size=2):
     L = len(x)
+    C = len(x[0])
+    L_out = L // pool_size
+    out = [[0.0] * C for _ in range(L_out)]
+    for i in range(L_out):
+        for c in range(C):
+            out[i][c] = max(x[i*pool_size + p][c] for p in range(pool_size))
+    return out
+
+def py_gap(x):
+    L = len(x)
+    C = len(x[0])
+    out = [0.0] * C
+    for c in range(C):
+        out[c] = sum(x[i][c] for i in range(L)) / L
+    return out
+
+def py_dense(x, w, b):
+    C_in = len(x)
+    C_out = len(w[0])
+    out = [0.0] * C_out
+    for co in range(C_out):
+        val = 0.0
+        for ci in range(C_in):
+            val += x[ci] * w[ci][co]
+        out[co] = val + b[co]
+    return out
+
+def nowcast_predict(x, weights_path="models/nowcast_cnn_weights.json"):
+    """Inference for the 1D CNN Nowcast classifier (pure Python).
+    Input x: nested list of shape (60, 9) or numpy array
+    Output: probability list of shape (4,), state class string, confidence score
+    """
+    # If numpy array, convert to list
+    if hasattr(x, "tolist"):
+        x = x.tolist()
