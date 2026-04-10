@@ -83,3 +83,28 @@ def nowcast_predict(x, weights_path="models/nowcast_cnn_weights.json"):
     # If numpy array, convert to list
     if hasattr(x, "tolist"):
         x = x.tolist()
+        
+    w = load_nowcast_model(weights_path)
+    
+    # 1. Conv1D + ReLU -> input (60, 9), weights (5, 9, 32)
+    # Output: (56, 32)
+    c1 = py_conv1d(x, w['w_conv1'], w['b_conv1'])
+    c1_rect = py_relu(c1)
+    
+    # 2. MaxPool1D -> input (56, 32), pool_size=2
+    # Output: (28, 32)
+    p1 = py_maxpool1d(c1_rect, pool_size=2)
+    
+    # 3. Conv1D + ReLU -> input (28, 32), weights (3, 32, 64)
+    # Output: (26, 64)
+    c2 = py_conv1d(p1, w['w_conv2'], w['b_conv2'])
+    c2_rect = py_relu(c2)
+    
+    # 4. Global Average Pooling -> input (26, 64)
+    # Output: (64,)
+    gap = py_gap(c2_rect)
+    
+    # 5. Dense 1 + ReLU -> input (64,), weights (64, 64)
+    # Output: (64,)
+    d1_logits = [sum(gap[ci] * w['w_dense1'][ci][co] for ci in range(64)) + w['b_dense1'][co] for co in range(64)]
+    d1 = [max(0.0, val) for val in d1_logits]
