@@ -43,3 +43,33 @@ def py_dilated_causal_conv1d(x, w, b, dilation=1):
                     for ci in range(C_in):
                         val += x[idx][ci] * w[k][ci][co]
             out[i][co] = val + b[co]
+    return out
+
+def py_gap(x):
+    L = len(x)
+    C = len(x[0])
+    out = [0.0] * C
+    for c in range(C):
+        out[c] = sum(x[i][c] for i in range(L)) / L
+    return out
+
+def py_dense(x, w, b):
+    C_in = len(x)
+    C_out = len(w[0])
+    out = [0.0] * C_out
+    for co in range(C_out):
+        val = 0.0
+        for ci in range(C_in):
+            val += x[ci] * w[ci][co]
+        out[co] = val + b[co]
+    return out
+
+def forecast_predict(x, weights_path="models/forecast_tcn_weights.json"):
+    """Inference for the Temporal Convolutional Network (pure Python).
+    Input x: nested list of shape (720, 9) representing 1 hour of features
+    Output: probability of M-class or larger flare within next 3 hours (float)
+    """
+    if hasattr(x, "tolist"):
+        x = x.tolist()
+        
+    w = load_forecast_model(weights_path)
