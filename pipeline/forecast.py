@@ -73,3 +73,18 @@ def forecast_predict(x, weights_path="models/forecast_tcn_weights.json"):
         x = x.tolist()
         
     w = load_forecast_model(weights_path)
+    
+    # 1. Dilated Causal Conv Block 1 -> input (720, 9), weights (3, 9, 32), dilation=1
+    x1 = py_relu(py_dilated_causal_conv1d(x, w['w_tcn1'], w['b_tcn1'], dilation=1))
+    
+    # 2. Dilated Causal Conv Block 2 -> input (720, 32), weights (3, 32, 32), dilation=2
+    x2 = py_relu(py_dilated_causal_conv1d(x1, w['w_tcn2'], w['b_tcn2'], dilation=2))
+    
+    # 3. Dilated Causal Conv Block 3 -> input (720, 32), weights (3, 32, 64), dilation=4
+    x3 = py_relu(py_dilated_causal_conv1d(x2, w['w_tcn3'], w['b_tcn3'], dilation=4))
+    
+    # 4. Dilated Causal Conv Block 4 -> input (720, 64), weights (3, 64, 64), dilation=8
+    x4 = py_relu(py_dilated_causal_conv1d(x3, w['w_tcn4'], w['b_tcn4'], dilation=8))
+    
+    # 5. Global Average Pooling -> input (720, 64)
+    gap = py_gap(x4)
