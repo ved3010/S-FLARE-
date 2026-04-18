@@ -33,3 +33,28 @@ def forecast_from_history(history: List[Dict[str, Any]], horizon_minutes: int) -
     if len(clean) < 3:
         raise ValueError("At least three valid observations are required for a forecast")
     clean.sort(key=lambda p: p["timestamp"])
+    latest = clean[-1]
+    start = latest["timestamp"] - 5 * 60_000
+    recent = [p for p in clean if p["timestamp"] >= start]
+    if len(recent) < 3:
+        recent = clean[-min(len(clean), 60):]
+
+    t0 = recent[0]["timestamp"] / 1000.0
+    xs = [(p["timestamp"] / 1000.0) - t0 for p in recent]
+    ys = [math.log10(max(p["softFlux"], 1e-12)) for p in recent]
+    xbar, ybar = sum(xs) / len(xs), sum(ys) / len(ys)
+    denom = sum((x - xbar) ** 2 for x in xs)
+    slope = sum((x - xbar) * (y - ybar) for x, y in zip(xs, ys)) / denom if denom else 0.0
+    slope = max(-0.01, min(0.01, slope))
+    predicted = 10 ** (ys[-1] + slope * horizon_minutes * 60)
+    predicted = max(1e-12, min(1e-2, predicted))
+    target = latest["timestamp"] + horizon_minutes * 60_000
+    return {
+        "horizon_minutes": horizon_minutes,
+        "target_time": datetime.fromtimestamp(target / 1000, tz=timezone.utc).isoformat().replace('+00:00', 'Z'),
+        "predicted_flux": predicted,
+        "activity": _activity_level(predicted),
+        "risk": _activity_level(predicted),
+        "confidence": round(min(0.8, 0.35 + len(recent) / 500), 2),
+        "method": "Recent 5-minute log-linear baseline",
+    }
