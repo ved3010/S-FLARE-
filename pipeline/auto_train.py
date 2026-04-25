@@ -63,3 +63,63 @@ def run_training(epochs=30, lr=0.001):
     # Ensure we're not using the system python (which may lack numpy)
     if 'ucrt64' in venv_python or 'msys' in venv_python:
         # Try known venv paths; fall back to sys.executable
+        for candidate in [
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.venv', 'bin', 'python.exe'),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.venv', 'Scripts', 'python.exe'),
+        ]:
+            if os.path.exists(candidate):
+                venv_python = candidate
+                break
+    cmd = [
+        venv_python, script_path,
+        "--source", "noaa",
+        "--epochs", str(epochs),
+        "--lr", str(lr),
+    ]
+
+    logger.info(f"  Running: {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=3600,  # 1 hour max
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+
+        if result.returncode == 0:
+            # Log key lines from the output
+            for line in result.stdout.split("\n"):
+                if any(kw in line.lower() for kw in
+                       ["fetched", "samples", "epoch", "best",
+                        "saved", "verif", "complete", "error", "warn"]):
+                    logger.info(f"    {line.strip()}")
+            logger.info("  Training completed successfully")
+            return True
+        else:
+            logger.error(f"  Training failed (exit code {result.returncode})")
+            for line in (result.stderr or "").split("\n")[-20:]:
+                if line.strip():
+                    logger.error(f"    {line.strip()}")
+            return False
+
+    except subprocess.TimeoutExpired:
+        logger.error("  Training timed out after 3600s")
+        return False
+    except Exception as e:
+        logger.error(f"  Training error: {e}")
+        return False
+
+
+def auto_retrain_loop(interval_hours=6, epochs=30, lr=0.001):
+    """Background loop that re-trains models on fresh NOAA data.
+
+    Runs in a daemon thread. Checks every 60 seconds if it's time to retrain.
+    After successful training, busts the model cache for immediate effect.
+
+    Args:
+        interval_hours: How often to retrain (default 6 hours)
+        epochs: Number of training epochs per retrain (default 30)
+        lr: Learning rate (default 0.001)
+    """
