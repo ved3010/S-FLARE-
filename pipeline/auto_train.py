@@ -123,3 +123,38 @@ def auto_retrain_loop(interval_hours=6, epochs=30, lr=0.001):
         epochs: Number of training epochs per retrain (default 30)
         lr: Learning rate (default 0.001)
     """
+    last_train_time = 0
+    first_run = True
+
+    logger.info(f"Auto-retrain started (interval={interval_hours}h, epochs={epochs})")
+
+    while True:
+        now = time.time()
+        should_train = False
+
+        if first_run:
+            # Do an initial training pass shortly after startup
+            logger.info("[AUTO-TRAIN] Initial training pass starting in 30 seconds...")
+            time.sleep(30)
+            should_train = True
+            first_run = False
+        elif now - last_train_time >= interval_hours * 3600:
+            should_train = True
+
+        if should_train:
+            ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(f"[AUTO-TRAIN] ===== Scheduled training at {ts} UTC =====")
+
+            success = run_training(epochs=epochs, lr=lr)
+
+            if success:
+                bust_model_cache()
+                last_train_time = now
+                logger.info(f"[AUTO-TRAIN] Training cycle complete. Next: +{interval_hours}h")
+            else:
+                logger.warning(f"[AUTO-TRAIN] Training cycle failed. Will retry in 30min")
+                # On failure, retry sooner
+                last_train_time = now - (interval_hours * 3600) + 1800
+
+        # Check every 60 seconds
+        time.sleep(60)
