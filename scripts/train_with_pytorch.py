@@ -108,3 +108,113 @@ def prepare_data():
     
     # 2.1 Nowcast Labels: [0: QUIET, 1: FLARE_ONSET, 2: FLARE_PEAK, 3: FLARE_DECAY]
     # In generate_mock_fits.py, the flare starts at t=3000, peaks around 3300-3500, and decays.
+    # We can use the soft flux values and its derivative to determine the phase at each index.
+    nowcast_labels = []
+    for i in range(n_rows):
+        flux = soft_fluxes[i]
+        deriv = feature_history[i, 5] # flux_derivative_60s
+        
+        if flux < 1.5e-7:
+            lbl = 0  # QUIET
+        elif deriv > 1e-9:
+            lbl = 1  # FLARE_ONSET
+        elif deriv < -1e-9:
+            lbl = 3  # FLARE_DECAY
+        else:
+            lbl = 2  # FLARE_PEAK
+        nowcast_labels.append(lbl)
+        
+    nowcast_labels = np.array(nowcast_labels)
+    
+    # 2.2 Forecast Labels: 1.0 (predictive warning) if a flare will occur in the next 3 hours (2160 steps)
+    # and the current state is not yet in the active flare, else 0.0.
+    # Specifically, we want it to activate for the window leading up to the flare onset (t in [1000, 3000]).
+    forecast_labels = []
+    for i in range(n_rows):
+        # Check if any future time within 3 hours has a flare start
+        future_slice = soft_fluxes[i+1 : min(i+2160, n_rows)]
+        if len(future_slice) > 0 and np.any(future_slice >= 3.0e-7) and soft_fluxes[i] < 3.0e-7:
+            forecast_labels.append(1.0)
+        else:
+            forecast_labels.append(0.0)
+            
+    forecast_labels = np.array(forecast_labels)
+    
+    # 2.3 Build Sliding Window Datasets
+    # Nowcast requires windows of shape (60, 9), target is label at final index
+    X_nc = []
+    y_nc = []
+    for i in range(60, n_rows):
+        window = feature_history[i-60 : i] # length 60
+        # transpose to (9, 60) for Conv1D channel-first shape
+        X_nc.append(window.T)
+        y_nc.append(nowcast_labels[i])
+        
+    X_nc = torch.tensor(np.array(X_nc), dtype=torch.float32)
+    y_nc = torch.tensor(np.array(y_nc), dtype=torch.long)
+    
+    # Forecast requires windows of shape (720, 9), target is label at final index
+    X_fc = []
+    y_fc = []
+    for i in range(720, n_rows):
+        window = feature_history[i-720 : i] # length 720
+        X_fc.append(window.T)
+        y_fc.append(forecast_labels[i])
+        
+    X_fc = torch.tensor(np.array(X_fc), dtype=torch.float32)
+    y_fc = torch.tensor(np.array(y_fc), dtype=torch.float32).unsqueeze(1)
+    
+    return X_nc, y_nc, X_fc, y_fc
+
+# ----------------------------------------------------
+# 3. Model Training Functions
+# ----------------------------------------------------
+
+def train_nowcast(X, y, epochs=40):
+    print("\n--- Training Nowcast CNN Model ---")
+    model = NowcastCNN()
+    optimizer = optim.Adam(model.parameters(), lr=0.005)
+    criterion = nn.CrossEntropyLoss()
+    
+    model.train()
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        outputs = model(X)
+        loss = criterion(outputs, y)
+        loss.backward()
+        optimizer.step()
+        
+        if (epoch + 1) % 10 == 0 or epoch == 0:
+            # Calculate accuracy
+            _, preds = torch.max(outputs, 1)
+            acc = (preds == y).sum().item() / len(y)
+            print(f"  Epoch {epoch+1:02d}/{epochs} | Loss: {loss.item():.4f} | Accuracy: {acc:.2%}")
+            
+    return model
+
+def train_forecast(X, y, epochs=40):
+    print("\n--- Training Forecast TCN Model ---")
+    model = ForecastTCN()
+    optimizer = optim.Adam(model.parameters(), lr=0.003)
+    criterion = nn.BCEWithLogitsLoss()
+    
+    model.train()
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        outputs = model(X)
+        loss = criterion(outputs, y)
+        loss.backward()
+        optimizer.step()
+        
+        if (epoch + 1) % 10 == 0 or epoch == 0:
+            probs = torch.sigmoid(outputs)
+            preds = (probs >= 0.5).float()
+            acc = (preds == y).sum().item() / len(y)
+            print(f"  Epoch {epoch+1:02d}/{epochs} | Loss: {loss.item():.4f} | Accuracy: {acc:.2%}")
+            
+    return model
+
+# ----------------------------------------------------
+# 4. Weight Translation & JSON Exporter
+# ----------------------------------------------------
+
