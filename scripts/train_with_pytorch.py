@@ -218,3 +218,63 @@ def train_forecast(X, y, epochs=40):
 # 4. Weight Translation & JSON Exporter
 # ----------------------------------------------------
 
+def export_nowcast_weights(model, path="models/nowcast_cnn_weights.json"):
+    print(f"\nTranslating and exporting Nowcast CNN weights to: {path}")
+    
+    # 1. Conv1: shape (32, 9, 5) -> permute to (2, 1, 0) -> (5, 9, 32)
+    w_conv1 = model.conv1.weight.permute(2, 1, 0).detach().numpy().tolist()
+    b_conv1 = model.conv1.bias.detach().numpy().tolist()
+    
+    # 2. Conv2: shape (64, 32, 3) -> permute to (2, 1, 0) -> (3, 32, 64)
+    w_conv2 = model.conv2.weight.permute(2, 1, 0).detach().numpy().tolist()
+    b_conv2 = model.conv2.bias.detach().numpy().tolist()
+    
+    # 3. Dense1: shape (64, 64) -> transpose -> (64, 64)
+    w_dense1 = model.dense1.weight.t().detach().numpy().tolist()
+    b_dense1 = model.dense1.bias.detach().numpy().tolist()
+    
+    # 4. Dense2: shape (4, 64) -> transpose -> (64, 4)
+    w_dense2 = model.dense2.weight.t().detach().numpy().tolist()
+    b_dense2 = model.dense2.bias.detach().numpy().tolist()
+    
+    weights = {
+        'w_conv1': w_conv1, 'b_conv1': b_conv1,
+        'w_conv2': w_conv2, 'b_conv2': b_conv2,
+        'w_dense1': w_dense1, 'b_dense1': b_dense1,
+        'w_dense2': w_dense2, 'b_dense2': b_dense2
+    }
+    
+    os.makedirs(os.path.dirname(os.path.join(project_root, path)), exist_ok=True)
+    with open(os.path.join(project_root, path), 'w') as f:
+        json.dump(weights, f, indent=2)
+    print("Nowcast weights exported successfully!")
+
+def export_forecast_weights(model, path="models/forecast_tcn_weights.json"):
+    print(f"\nTranslating and exporting Forecast TCN weights to: {path}")
+    
+    # Causal Conv blocks require kernel dimension flip: weight.flip(dims=[2]).permute(2, 1, 0)
+    w_tcn1 = model.tcn1.conv.weight.flip(dims=[2]).permute(2, 1, 0).detach().numpy().tolist()
+    b_tcn1 = model.tcn1.conv.bias.detach().numpy().tolist()
+    
+    w_tcn2 = model.tcn2.conv.weight.flip(dims=[2]).permute(2, 1, 0).detach().numpy().tolist()
+    b_tcn2 = model.tcn2.conv.bias.detach().numpy().tolist()
+    
+    w_tcn3 = model.tcn3.conv.weight.flip(dims=[2]).permute(2, 1, 0).detach().numpy().tolist()
+    b_tcn3 = model.tcn3.conv.bias.detach().numpy().tolist()
+    
+    w_tcn4 = model.tcn4.conv.weight.flip(dims=[2]).permute(2, 1, 0).detach().numpy().tolist()
+    b_tcn4 = model.tcn4.conv.bias.detach().numpy().tolist()
+    
+    # Dense layers
+    w_dense1 = model.dense1.weight.t().detach().numpy().tolist()
+    b_dense1 = model.dense1.bias.detach().numpy().tolist()
+    
+    w_dense2 = model.dense2.weight.t().detach().numpy().tolist()
+    b_dense2 = model.dense2.bias.detach().numpy().tolist()
+    
+    weights = {
+        'w_tcn1': w_tcn1, 'b_tcn1': b_tcn1,
+        'w_tcn2': w_tcn2, 'b_tcn2': b_tcn2,
+        'w_tcn3': w_tcn3, 'b_tcn3': b_tcn3,
+        'w_tcn4': w_tcn4, 'b_tcn4': b_tcn4,
+        'w_dense1': w_dense1, 'b_dense1': b_dense1,
