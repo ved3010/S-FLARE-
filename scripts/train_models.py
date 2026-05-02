@@ -58,3 +58,43 @@ def init_nowcast_weights():
         'w_conv2': w_conv2, 'b_conv2': b_conv2,
         'w_dense1': w_dense1, 'b_dense1': b_dense1,
         'w_dense2': w_dense2, 'b_dense2': b_dense2
+    }
+    
+    with open("models/nowcast_cnn_weights.json", "w") as f:
+        json.dump(weights, f, indent=2)
+    print("Saved Nowcast weights to models/nowcast_cnn_weights.json")
+
+def init_forecast_weights():
+    """Initializes weights for the TCN forecast model and writes to JSON."""
+    print("Generating default weights for Forecast TCN...")
+    
+    # Conv blocks (kernel_size=3, channels_in, channels_out)
+    w_tcn1 = generate_random_weights((3, 9, 32), 0.05)
+    b_tcn1 = [0.0] * 32
+    
+    # Tune TCN1 to respond to Feature 2 (hardness ratio), Feature 3 (slope), and Feature 4 (z-score)
+    for k in range(3):
+        w_tcn1[k][2][0] = 0.4
+        w_tcn1[k][3][1] = 1.2 # HR trend (pre-flare indicator)
+        w_tcn1[k][4][2] = 0.8
+        
+    w_tcn2 = generate_random_weights((3, 32, 32), 0.05)
+    b_tcn2 = [0.0] * 32
+    for k in range(3):
+        w_tcn2[k][0][0] = 0.5
+        w_tcn2[k][1][1] = 0.8
+        
+    w_tcn3 = generate_random_weights((3, 32, 64), 0.05)
+    b_tcn3 = [0.0] * 64
+    for k in range(3):
+        w_tcn3[k][0][0] = 0.5
+        w_tcn3[k][1][1] = 0.5
+        
+    w_tcn4 = generate_random_weights((3, 64, 64), 0.05)
+    b_tcn4 = [0.0] * 64
+    
+    w_dense1 = generate_random_weights((64, 32), 0.1)
+    b_dense1 = [0.0] * 32
+    
+    w_dense2 = generate_random_weights((32, 1), 0.1)
+    b_dense2 = [-1.5] # Negative bias (low default prob)
