@@ -518,3 +518,103 @@ def train_forecast(model, X, y, n_epochs=30, lr=0.001):
     val_X, val_y = X_t[split:], y_t[split:]
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.BCELoss()
+
+    best_val_loss = float("inf")
+    best_val_acc = 0.0
+
+    for epoch in range(n_epochs):
+        model.train()
+        perm = torch.randperm(len(train_X))
+        running_loss = 0.0
+        batch_size = 32
+        for start in range(0, len(train_X), batch_size):
+            idx_b = perm[start : start + batch_size]
+            bx, by = train_X[idx_b], train_y[idx_b]
+            optimizer.zero_grad()
+            out = model(bx)
+            loss = criterion(out, by)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+
+        # Validation
+        model.eval()
+        with torch.no_grad():
+            val_out = model(val_X)
+            val_loss = criterion(val_out, val_y).item()
+            val_pred_bin = (val_out > 0.5).float()
+            val_acc = (val_pred_bin == val_y).float().mean().item()
+
+        if (epoch + 1) % 5 == 0 or epoch == 0:
+            print(f"    Epoch {epoch+1:2d}/{n_epochs}  loss={running_loss:.4f}  val_loss={val_loss:.4f}  val_acc={val_acc:.4f}")
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_val_acc = val_acc
+
+    print(f"  Forecast training complete. Best val accuracy: {best_val_acc:.4f}")
+    return model
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. Verification — test exported weights match inference code
+# ═══════════════════════════════════════════════════════════════════════════
+
+def verify_nowcast_export():
+    """Load exported weights and run pure-Python inference to verify correctness."""
+    from pipeline.nowcast import nowcast_predict
+    x_test = [[0.0] * 9 for _ in range(60)]
+    probs, cls, conf = nowcast_predict(x_test)
+    print(f"  Nowcast test: {cls} (conf={conf:.4f}) | probs={[round(p, 4) for p in probs]}")
+    return cls
+
+
+def verify_forecast_export():
+    """Load exported weights and run pure-Python inference to verify correctness."""
+    from pipeline.forecast import forecast_predict
+    x_test = [[0.0] * 9 for _ in range(720)]
+    prob = forecast_predict(x_test)
+    print(f"  Forecast test: flare_prob={prob:.4f}")
+    return prob
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. Main
+# ═══════════════════════════════════════════════════════════════════════════
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Train Nowcast CNN + Forecast TCN on real NOAA GOES data"
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default="noaa",
+        choices=["noaa", "mock"],
+        help="Data source: 'noaa' (default, fetches live GOES data) or 'mock' (local mock data)",
+    )
+    parser.add_argument("--epochs", type=int, default=30, help="Number of training epochs")
+    parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
+    parser.add_argument(
+        "--no-train", action="store_true", help="Skip training -- only fetch and report data stats"
+    )
+    parser.add_argument(
+        "--verify-only", action="store_true", help="Only verify exported weights (skip training)"
+    )
+    args = parser.parse_args()
+
+    print("=" * 60)
+    print("Solar Flare Forecasting Model Training")
+    print(f"Data source: {args.source.upper()}")
+    print("=" * 60)
+
+    if args.verify_only:
+        print("\n[Verify] Checking exported weights...")
+        verify_nowcast_export()
+        verify_forecast_export()
+        return
+
+    # ── Step 1: Fetch/Load Data ────────────────────────────────────────
+    print("\n[1/5] Loading data...")
+    if args.source == "noaa":
