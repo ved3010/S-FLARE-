@@ -78,3 +78,83 @@ def fetch_latest_noaa_tick(last_time_tag=None):
                 'hard_15_25': hard_proxy * 2.2,
                 'hard_25_50': hard_proxy,
                 'hard_50_100': hard_proxy * 0.12,
+                'data_gap': False,
+                'time_tag': latest_tt
+            }
+            return telemetry, latest_tt
+        return None, last_time_tag
+    except Exception as e:
+        print(f"Error checking NOAA tick: {e}")
+        return None, last_time_tag
+
+def main():
+    parser = argparse.ArgumentParser(description="SOLAR FLARE FORECASTING Pipeline Orchestrator")
+    parser.add_argument("--mode", type=str, default="live", choices=["live", "replay", "aditya"], help="Run mode")
+    parser.add_argument("--event", type=int, default=6, help="Event ID for replay")
+    parser.add_argument("--speed", type=float, default=1.0, help="Simulation speed multiplier")
+    parser.add_argument("--api-url", type=str, default="http://localhost:8000/api/update", help="FastAPI update endpoint")
+    args = parser.parse_args()
+    
+    print(f"Starting pipeline in {args.mode.upper()} mode...")
+    
+    aggregator = AlertAggregator()
+    
+    # Telemetry history buffer
+    history_buffer = []
+    fill_history_buffer(history_buffer, num_points=800)
+    
+    # Setup data source
+    replay_records = []
+    replay_idx = 0
+    
+    # Try to load replay data
+    if args.mode == "replay":
+        solexs_json = f"data/raw/solexs/solexs_20240915_level2.json"
+        helios_json = f"data/raw/helios/helios_20240915_level1.json"
+        
+        if os.path.exists(solexs_json) and os.path.exists(helios_json):
+            print("Loading historical aligned telemetry for replay...")
+            try:
+                aligned = load_and_align(solexs_json, helios_json)
+                # Sample every 5th record to match 5-second tick cadence
+                replay_records = aligned[::5]
+                print(f"Loaded {len(replay_records)} replay records.")
+            except Exception as e:
+                print(f"Error loading replay data: {e}. Falling back to simulation.")
+                
+    # ADITYA mode: load real Aditya-L1 PRADAN data
+    if args.mode == "aditya":
+        print("Loading real Aditya-L1 data from PRADAN archive...")
+        try:
+            aditya_data = load_aditya_data(sample_every=60)
+            if aditya_data and len(aditya_data) > 10:
+                replay_records = aditya_data
+                print(f"Loaded {len(replay_records)} real Aditya-L1 records from PRADAN!")
+            else:
+                print("Aditya-L1 data empty or not found.")
+        except Exception as e:
+            print(f"Error loading Aditya-L1 data: {e}")
+                
+    # Fallback simulation if replay data empty
+    if args.mode in ("replay", "aditya") and not replay_records:
+        print("Simulating replay stream for Event ID", args.event)
+        duration_ticks = 720
+        base_time = time.time()
+        for i in range(duration_ticks):
+            flare_active = 180 <= i < 480
+            point = generate_live_stream_point(base_time + i * 5, flare_active=flare_active)
+            replay_records.append(point)
+            
+    # Main loop setup
+    tick_interval = 5.0 / args.speed
+    print(f"Running loop. Tick interval: {tick_interval:.2f}s (Speed: {args.speed}x)")
+    
+    live_tick = 0
+    last_noaa_tag = None
+    last_known_noaa = None
+    
+    try:
+        while True:
+            start_tick = time.time()
+            t_sec = time.time()
+            
