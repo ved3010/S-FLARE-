@@ -158,3 +158,63 @@ def main():
             start_tick = time.time()
             t_sec = time.time()
             
+            # 1. Fetch new telemetry based on mode
+            if args.mode == "replay":
+                if replay_idx >= len(replay_records):
+                    print("Replay completed. Restarting...")
+                    replay_idx = 0
+                telemetry = replay_records[replay_idx].copy()
+                replay_idx += 1
+                telemetry['time'] = int(t_sec)
+            elif args.mode == "aditya":
+                if replay_idx >= len(replay_records):
+                    print("Aditya replay completed. Restarting...")
+                    replay_idx = 0
+                telemetry = replay_records[replay_idx].copy()
+                replay_idx += 1
+                telemetry['time'] = int(t_sec)
+            else: # "live" mode
+                # Try fetching live NOAA data
+                new_telemetry, latest_noaa_tag = fetch_latest_noaa_tick(last_noaa_tag)
+                if new_telemetry:
+                    last_noaa_tag = latest_noaa_tag
+                    last_known_noaa = new_telemetry
+                    print(f"[NOAA SYNC] Fetched latest NOAA X-ray tick: {last_noaa_tag}")
+                
+                if last_known_noaa:
+                    # Stream last known NOAA data with current time & small dynamic fluctuation
+                    telemetry = last_known_noaa.copy()
+                    telemetry['time'] = int(t_sec)
+                    fluct_soft = random.gauss(0, telemetry['soft_flux'] * 0.01)
+                    fluct_hard = random.gauss(0, telemetry['hard_25_50'] * 0.01)
+                    telemetry['soft_flux'] = max(1e-9, telemetry['soft_flux'] + fluct_soft)
+                    telemetry['hard_25_50'] = max(0.1, telemetry['hard_25_50'] + fluct_hard)
+                    telemetry['hard_15_25'] = telemetry['hard_25_50'] * 2.2
+                    telemetry['hard_50_100'] = telemetry['hard_25_50'] * 0.12
+                else:
+                    # Offline/initial fallback: simulated active flare cycle
+                    flare_active = (live_tick % 180) > 60 and (live_tick % 180) < 120
+                    telemetry = generate_live_stream_point(t_sec, flare_active=flare_active)
+                    live_tick += 1
+                
+            # Append to history
+            history_buffer.append(telemetry)
+            if len(history_buffer) > 2000:
+                history_buffer.pop(0)
+                
+            # 2. Compute features
+            if PANDAS_OK:
+                buf_df = pd.DataFrame(history_buffer)
+                features = compute_latest_features(buf_df).tolist()
+            else:
+                features = compute_latest_features_pure(history_buffer)
+                
+            # 3. Model predictions
+            # Construct inputs from history
+            x_nowcast = []
+            for offset in range(60, 0, -1):
+                if len(history_buffer) >= offset:
+                    x_nowcast.append(compute_latest_features_pure(history_buffer[:-offset]))
+                else:
+                    x_nowcast.append(features)
+                    
