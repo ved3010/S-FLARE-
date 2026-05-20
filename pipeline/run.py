@@ -218,3 +218,33 @@ def main():
                 else:
                     x_nowcast.append(features)
                     
+            x_forecast = []
+            for offset in range(720, 0, -1):
+                if len(history_buffer) >= offset:
+                    x_forecast.append(compute_latest_features_pure(history_buffer[:-offset]))
+                else:
+                    x_forecast.append(features)
+                    
+            _, nc_class, nc_conf = nowcast_predict(x_nowcast)
+            fc_prob = forecast_predict(x_forecast)
+            
+            # Auto-retrain: use trained model predictions directly.
+            # Physics-based sanity clamp: only override if model outputs are
+            # wildly out of range (data gap / NaN protection).
+            soft_flux = telemetry['soft_flux']
+            hr_val = features[2]
+            if nc_class == "—" and soft_flux > 1.5e-6:
+                nc_class = "QUIET"
+            fc_prob = max(0.01, min(0.99, fc_prob))  # Clamp to valid range
+                
+            # 4. Aggregate
+            ts_str = datetime.utcfromtimestamp(t_sec).isoformat() + "Z"
+            status = aggregator.process_tick(
+                timestamp_utc=ts_str,
+                telemetry=telemetry,
+                features=features,
+                nowcast_probs=None,
+                nowcast_class=nc_class,
+                nowcast_conf=nc_conf,
+                forecast_prob=fc_prob
+            )
