@@ -68,3 +68,33 @@ The repository includes support for multiple Machine Learning & Deep Learning mo
 ### Leakage Prevention
 - **Chronological Splitting**: Data is split sequentially (70% Train, 15% Validation, 15% Test) without random shuffling.
 - **Independent Fitting**: Scalers and feature transformers are fitted exclusively on training data.
+
+---
+
+## 6. System Architecture & API Endpoints
+
+### Backend (FastAPI on Port 8000)
+- `GET /api/status`: Mission status, current nowcast, and +1m/+2m predictions.
+- `GET /api/short-term-forecast`: Short-term forecasting payload with target timestamps, predicted flux, and confidence scores.
+- `GET /api/actual-vs-predicted`: Verification comparison between actual observed flux and historical +1m/+2m predictions.
+- `GET /api/data-quality`: Live telemetry metadata, missing values, duplicates, and sampling cadence.
+- `WS /ws/live`: Real-time WebSocket telemetry stream.
+
+### Frontend (React + Vite on Port 5173)
+- Scientific Glassmorphism UI styled with Vanilla CSS and Tailwind utilities.
+- Interactive Recharts Soft & Hard X-ray time-series visualization.
+- Real-time Nowcast, +1m Forecast, and +2m Forecast status cards.
+
+---
+
+## 7. How to Run
+
+### Backend
+```powershell
+# 1. Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Launch FastAPI server
