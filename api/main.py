@@ -798,3 +798,203 @@ def _get_impact_data(flare_class: str):
             'severe': {
                 'systems': ['All Military Satellites', 'SATCOM (all bands)', 'Missile Guidance', 'Early Warning Radar', 'Submarine Comms (VLF/ELF)'],
                 'risk_level': 'critical',
+                'effect': 'Severe degradation across all military space assets. GPS-guided munitions unreliable. Early warning satellite IR sensors may saturate. VLF/ELF submarine communication links disrupted. Military satellites may experience attitude control anomalies from charged particle flux.',
+                'recovery_time': '16–36 hours',
+                'historical_example': 'X17 flare (Oct 2003) triggered NORAD space surveillance alerts and forced multiple military satellite constellation maneuvers.'
+            },
+            'extreme': {
+                'systems': ['All Military Satellites', 'All SATCOM', 'Missile Guidance', 'Early Warning (space & ground)', 'Nuclear C3 Links', 'Submarine VLF/ELF'],
+                'risk_level': 'critical',
+                'effect': 'Complete military communication and navigation blackout. Space-based early warning systems potentially non-functional. Ground-based radar systems disrupted by ionospheric disturbance. Nuclear command and control links (VLF/ELF) may fail. Strategic communications severely compromised.',
+                'recovery_time': '48–96 hours for full capability restoration',
+                'historical_example': '1967 Solar Storm nearly triggered nuclear response — USAF mistakenly attributed radar jamming to Soviet attack before solar cause was identified.'
+            }
+        }
+        categories.append({'category': 'Defence & Intelligence', **defence[tier]})
+    
+    # ── Weather & Earth Observation ──
+    weather = {
+        'nominal': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R'],
+            'risk_level': 'low',
+            'effect': 'Weather observation instruments running normally. Image data clear of energetic particle noise.',
+            'recovery_time': 'Nominal operations',
+            'historical_example': 'Baseline solar condition.'
+        },
+        'minor': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat'],
+            'risk_level': 'low',
+            'effect': 'Negligible impact on weather satellite operations. Slight increase in energetic particle background noise on imaging sensors. Data quality unaffected.',
+            'recovery_time': 'No interruption expected',
+            'historical_example': 'C-class flares routinely produce minor background noise in GOES-R SUVI images without data impact.'
+        },
+        'moderate': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R Series', 'Landsat-9', 'Sentinel-2'],
+            'risk_level': 'low',
+            'effect': 'LEO Earth observation satellites may experience single-event upsets. Energetic particle noise visible in optical sensors during South Atlantic Anomaly (SAA) passes. GEO weather satellite data nominally unaffected.',
+            'recovery_time': '1–2 hours for LEO sensor recovery',
+            'historical_example': 'M2.0 flare (Mar 2024) caused transient noise streaks in Landsat-9 OLI images over SAA region.'
+        },
+        'high': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R', 'Landsat-9', 'Sentinel-1/2/3', 'Oceansat-3'],
+            'risk_level': 'moderate',
+            'effect': 'Increased atmospheric drag on LEO satellites alters orbital parameters, requiring more frequent tracking updates. GEO weather satellite CCD sensors may see energetic particle contamination ("snow" in images). SAR satellites (Sentinel-1) may experience timing errors.',
+            'recovery_time': '4–8 hours; orbit corrections within 24 hours',
+            'historical_example': 'M7.0+ flare (Sep 2005) caused NOAA-17 AVHRR sensor to produce corrupted imagery for 3 orbits.'
+        },
+        'critical': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R', 'Landsat', 'Sentinel constellation', 'Oceansat-3', 'EOS-04'],
+            'risk_level': 'high',
+            'effect': 'GEO weather satellites may enter safe mode due to surface/deep dielectric charging. LEO EO satellites experience significant orbital decay from thermospheric heating. Loss of Earth observation continuity for 12+ hours possible.',
+            'recovery_time': '12–24 hours; orbital maneuvers may be needed',
+            'historical_example': 'X3.3 flare (Nov 2003) forced GOES-12 to enter safe mode, leaving the US without primary geostationary weather data for 6 hours.'
+        },
+        'severe': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R', 'All LEO EO satellites', 'EOS series', 'Cartosat'],
+            'risk_level': 'critical',
+            'effect': 'Multiple weather satellites may simultaneously enter safe mode. Thermospheric density increase causes accelerated orbital decay for all LEO satellites — Starlink, EO constellations at highest risk. Cloud of debris tracking temporarily impossible due to radar disruption.',
+            'recovery_time': '24–48 hours for satellite recovery',
+            'historical_example': 'X7.1 flare (Oct 2003) caused simultaneous safe-mode entries for GOES-12, SOHO, and multiple LEO satellites.'
+        },
+        'extreme': {
+            'systems': ['All weather satellites (GEO/LEO)', 'All EO satellites', 'INSAT/GOES/Meteosat', 'CubeSat constellations'],
+            'risk_level': 'critical',
+            'effect': 'Potential permanent damage to satellite imaging sensors and electronics from extreme particle radiation. Mass casualty event for LEO satellite constellations from atmospheric drag surge. Global weather forecasting capability significantly degraded.',
+            'recovery_time': '48–96 hours; some satellites permanently lost',
+            'historical_example': '2003 Halloween Storms (X28+) damaged the GOES-13 SXI instrument beyond repair and caused $640M in satellite losses industry-wide.'
+        }
+    }
+    categories.append({'category': 'Weather & Earth Observation', **weather[tier]})
+    
+    # ── Power Grid & Ground Infrastructure ──
+    if tier not in ('minor',):
+        power = {
+            'nominal': {
+                'systems': ['Power Transformers', 'Long-distance Pipelines'],
+                'risk_level': 'low',
+                'effect': 'No geomagnetically induced currents (GICs) detected. Power grid and pipeline cathodic systems operating at baseline.',
+                'recovery_time': 'Nominal operations',
+                'historical_example': 'Baseline solar condition.'
+            },
+            'moderate': {
+                'systems': ['High-latitude Power Transformers', 'Long-distance Pipelines'],
+                'risk_level': 'low',
+                'effect': 'Minor geomagnetically induced currents (GICs) in high-latitude power grids (>55° geomagnetic latitude). Slight increase in transformer hotspot temperatures. Pipeline cathodic protection systems see elevated potentials.',
+                'recovery_time': 'No outage expected; monitoring recommended',
+                'historical_example': 'M4.0 class flares routinely produce measurable GICs in Finnish power grid without operational impact.'
+            },
+            'high': {
+                'systems': ['High-latitude Power Grids', 'Long-distance Pipelines', 'Railway Signalling'],
+                'risk_level': 'moderate',
+                'effect': 'Geomagnetic storm (G1–G2) from associated CME drives GICs that stress high-voltage transformers. Power grid operators at high latitudes may need to reduce load on vulnerable transformers. Pipeline corrosion currents elevated 10–50x baseline.',
+                'recovery_time': '6–12 hours of elevated risk post-CME arrival',
+                'historical_example': 'M8.0 flare (May 2024) associated CME triggered G2 storm with transformer heating alerts in Scandinavia and Canada.'
+            },
+            'critical': {
+                'systems': ['Power Grids (>45° lat)', 'HV Transformers', 'Pipelines', 'Railway Signalling', 'Undersea Cables'],
+                'risk_level': 'high',
+                'effect': 'G2–G3 geomagnetic storm produces damaging GICs in power transformers down to 45° latitude. Reactive power compensation systems stressed. Risk of voltage collapse in grids with long transmission lines. Pipeline corrosion current surges may exceed cathodic protection capacity.',
+                'recovery_time': '12–24 hours; transformer inspection required',
+                'historical_example': 'X4.8 flare (Dec 2023) associated G3 storm caused transformer trip in South African power grid and elevated GICs measured in Indian railways.'
+            },
+            'severe': {
+                'systems': ['Power Grids (global risk)', 'HV/EHV Transformers', 'Pipelines (all)', 'Railway Systems', 'Undersea Cables', 'SCADA Systems'],
+                'risk_level': 'critical',
+                'effect': 'G4 geomagnetic storm — widespread transformer saturation causing harmonic distortion and overheating. Emergency load-shedding required at mid-to-high latitudes. Pipeline corrosion surges risk structural integrity. SCADA control systems may experience interference.',
+                'recovery_time': '24–72 hours; equipment damage possible',
+                'historical_example': 'X9.0 flare (Dec 2006) associated G4 storm caused widespread voltage instability alerts across Northern European grid.'
+            },
+            'extreme': {
+                'systems': ['All Power Grids', 'All HV/EHV Transformers', 'All Pipelines', 'Railway Systems', 'Undersea Cables', 'Water Treatment', 'Telecommunications Backhaul'],
+                'risk_level': 'critical',
+                'effect': 'G5 (Carrington-level) geomagnetic storm. Risk of cascading power grid collapse across entire continents. Hundreds of HV transformers may suffer permanent damage from GIC-induced overheating. Recovery requires physical transformer replacement (12–24 month lead time for EHV units).',
+                'recovery_time': 'Weeks to months for full grid restoration',
+                'historical_example': '1989 Quebec Blackout — X13+ flare/CME caused complete Hydro-Québec grid collapse in 92 seconds, leaving 6 million without power for 9 hours. Total cost: $2 billion.'
+            }
+        }
+        categories.append({'category': 'Power Grid & Ground Infrastructure', **power[tier]})
+    
+    # ── Space Station & Crewed Missions ──
+    if tier not in ('minor', 'moderate'):
+        crewed = {
+            'nominal': {
+                'systems': ['ISS', 'Tiangong'],
+                'risk_level': 'low',
+                'effect': 'Radiation levels inside space stations nominal. No extra shielding required. EVA activities safe.',
+                'recovery_time': 'Nominal operations',
+                'historical_example': 'Baseline solar condition.'
+            },
+            'high': {
+                'systems': ['ISS', 'Gaganyaan (planned)', 'Tiangong'],
+                'risk_level': 'moderate',
+                'effect': 'Elevated radiation levels inside ISS require crew to monitor dosimeters. EVA (spacewalk) activities may be postponed as a precaution. Gaganyaan mission planning would incorporate a 24-hour hold. Radiation dose rate ~2x background.',
+                'recovery_time': '12–24 hours for radiation levels to normalize',
+                'historical_example': 'M5.0 flare (Sep 2017) prompted NASA to delay a planned ISS EVA by 48 hours as radiation levels were assessed.'
+            },
+            'critical': {
+                'systems': ['ISS', 'Gaganyaan', 'Tiangong', 'Lunar Gateway (planned)'],
+                'risk_level': 'high',
+                'effect': 'ISS crew directed to shelter in better-shielded modules (e.g., Russian segment). All EVA activities cancelled. Solar proton event (SPE) radiation dose may approach quarterly limits for crew. Deep-space missions (Lunar Gateway) at significantly higher risk due to lack of geomagnetic shielding.',
+                'recovery_time': '24–48 hours; medical monitoring for 72 hours',
+                'historical_example': 'X1.3 flare (Sep 2005) forced ISS crew to shelter in the Service Module for 30 minutes during peak particle flux.'
+            },
+            'severe': {
+                'systems': ['ISS', 'Gaganyaan', 'Tiangong', 'All crewed LEO vehicles', 'Lunar missions'],
+                'risk_level': 'critical',
+                'effect': 'ISS crew emergency shelter protocol activated. Radiation dose may exceed annual limits during peak flux. Life support electronics at risk of SEU-induced malfunction. Any active lunar or deep-space crewed mission faces potentially career-limiting radiation exposure.',
+                'recovery_time': '48–96 hours; crew medical evaluation required',
+                'historical_example': 'X7.1 flare (Oct 2003) — ISS Expedition 7 crew sheltered for 1 hour; measured dose exceeded monthly limit. Apollo astronauts in transit would have received potentially lethal dose.'
+            },
+            'extreme': {
+                'systems': ['ISS', 'Gaganyaan', 'Tiangong', 'All crewed vehicles', 'Lunar/Mars missions', 'Commercial space stations'],
+                'risk_level': 'critical',
+                'effect': 'Life-threatening radiation levels for any crew outside Earth\'s magnetosphere. ISS crew emergency shelter with potential for radiation sickness symptoms. Carrington-level proton flux would deliver lethal dose to unshielded astronauts within hours. Mission abort protocols activated for all crewed vehicles.',
+                'recovery_time': 'Days to weeks; potential mission abort',
+                'historical_example': 'August 1972 SPE (between Apollo 16 and 17) — would have delivered ~4 Sv to moonwalking astronauts, likely fatal. ISS design incorporates 72-hour shelter capability for such events.'
+            }
+        }
+        categories.append({'category': 'Space Station & Crewed Missions', **crewed[tier]})
+    
+    # ── Scientific Instruments ──
+    sci = {
+        'nominal': {
+            'systems': ['Aditya-L1 (SoLEXS/HEL1OS)', 'SOHO', 'SDO'],
+            'risk_level': 'low',
+            'effect': 'Scientific instruments operating at standard baseline. Aditya-L1 SoLEXS and HEL1OS collecting background emission data.',
+            'recovery_time': 'Nominal operations',
+            'historical_example': 'Baseline solar condition.'
+        },
+        'minor': {
+            'systems': ['Aditya-L1 (SoLEXS/HEL1OS)', 'Chandrayaan-3 Lander'],
+            'risk_level': 'low',
+            'effect': 'Scientific instruments nominally operational. Aditya-L1 SoLEXS and HEL1OS payloads are designed to observe flares — increased flux is valuable science data. No instrument safe-mode triggers expected.',
+            'recovery_time': 'No interruption — active science collection',
+            'historical_example': 'C-class flares are routine science targets for Aditya-L1; SoLEXS collected over 200 C-class events since commissioning.'
+        },
+        'moderate': {
+            'systems': ['Aditya-L1', 'Chandrayaan-3', 'Hubble Space Telescope', 'SOHO', 'SDO'],
+            'risk_level': 'low',
+            'effect': 'Aditya-L1 HEL1OS detector may approach count-rate saturation for high-M flares — automatic gain adjustment activates. Hubble CCD sensors temporarily disabled during SAA + flare coincidence. HST Fine Guidance Sensors unaffected.',
+            'recovery_time': '1–2 hours for sensor recalibration',
+            'historical_example': 'M4.0 flare (May 2024) triggered Aditya-L1 HEL1OS high-count-rate mode — successfully captured full spectral evolution.'
+        },
+        'high': {
+            'systems': ['Aditya-L1', 'Chandrayaan-3', 'Hubble', 'JWST', 'SOHO', 'SDO', 'XPoSat'],
+            'risk_level': 'moderate',
+            'effect': 'Aditya-L1 SoLEXS enters high-flux mode with reduced time resolution to prevent detector damage. JWST NIRCam/MIRI detectors automatically disabled during particle storm. Chandrayaan-3 propulsion module instruments in safe mode.',
+            'recovery_time': '4–8 hours for instrument recovery',
+            'historical_example': 'M9.8 flare (Oct 2003) caused SOHO LASCO coronagraph to produce heavily degraded images from particle snow for 6 hours.'
+        },
+        'critical': {
+            'systems': ['Aditya-L1', 'Chandrayaan-3', 'Hubble', 'JWST', 'SOHO', 'SDO', 'XPoSat', 'Chandra X-ray'],
+            'risk_level': 'high',
+            'effect': 'Aditya-L1 payload enters autonomous safe mode — SoLEXS high-voltage supplies reduced, HEL1OS detector disabled to prevent permanent damage from extreme count rates. JWST enters full safe mode. Chandra X-ray Observatory retracts ACIS from focal plane.',
+            'recovery_time': '12–24 hours; instrument recalibration required',
+            'historical_example': 'X4.8 flare (Dec 2023) triggered JWST safe mode for 18 hours and forced Chandra ACIS retraction.'
+        },
+        'severe': {
+            'systems': ['Aditya-L1 (safe mode)', 'All space telescopes', 'Chandrayaan', 'JWST', 'Hubble', 'Chandra'],
+            'risk_level': 'critical',
+            'effect': 'Aditya-L1 full spacecraft safe mode — all payload operations suspended, solar panels oriented to minimize particle flux cross-section. Risk of permanent detector degradation for unshielded instruments. Multiple space telescopes simultaneously in safe mode.',
+            'recovery_time': '24–72 hours; detector performance assessment needed',
+            'historical_example': 'X9.0 flare (Dec 2006) caused permanent ~3% degradation in SOHO CDS detector sensitivity and forced RHESSI into safe mode.'
