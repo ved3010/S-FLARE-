@@ -998,3 +998,153 @@ def _get_impact_data(flare_class: str):
             'effect': 'Aditya-L1 full spacecraft safe mode — all payload operations suspended, solar panels oriented to minimize particle flux cross-section. Risk of permanent detector degradation for unshielded instruments. Multiple space telescopes simultaneously in safe mode.',
             'recovery_time': '24–72 hours; detector performance assessment needed',
             'historical_example': 'X9.0 flare (Dec 2006) caused permanent ~3% degradation in SOHO CDS detector sensitivity and forced RHESSI into safe mode.'
+        },
+        'extreme': {
+            'systems': ['Aditya-L1 (emergency safe mode)', 'All space telescopes', 'All science missions', 'JWST', 'Hubble', 'Chandra', 'Parker Solar Probe'],
+            'risk_level': 'critical',
+            'effect': 'Aditya-L1 emergency protocols: full payload shutdown, attitude adjustment for minimum radiation exposure, memory scrubbing on recovery. Potential for permanent instrument damage across multiple missions. L1 halo orbit exposes Aditya-L1 to unattenuated solar particle flux.',
+            'recovery_time': 'Days to weeks; some instruments may not recover',
+            'historical_example': 'X28+ flare (Nov 2003) permanently damaged the GOES-13 Solar X-ray Imager and degraded multiple instruments on SOHO, ACE, and WIND spacecraft.'
+        }
+    }
+    categories.append({'category': 'Scientific Instruments', **sci[tier]})
+    
+    return {
+        'nominal': is_nominal,
+        'flareClass': flare_class,
+        'noaaScale': noaa,
+        'categories': categories
+    }
+
+@app.get("/api/impact")
+def get_impact(flare_class: str = "B1.0"):
+    """Returns infrastructure impact assessment for the given GOES flare class."""
+    return _get_impact_data(flare_class)
+
+# ─────────────────────────────────────────────────
+# India-Specific Regional Risk Heatmap Endpoint
+# ─────────────────────────────────────────────────
+
+# India states/UTs with their approximate centroid latitudes (for GIC risk modeling)
+INDIA_REGIONS = [
+    # Northern region (highest GIC risk)
+    {"id": "jk", "name": "Jammu & Kashmir", "lat": 34.0, "lng": 76.5, "zone": "north"},
+    {"id": "hp", "name": "Himachal Pradesh", "lat": 31.5, "lng": 77.0, "zone": "north"},
+    {"id": "uk", "name": "Uttarakhand", "lat": 30.0, "lng": 79.0, "zone": "north"},
+    {"id": "pb", "name": "Punjab", "lat": 31.0, "lng": 75.5, "zone": "north"},
+    {"id": "hr", "name": "Haryana", "lat": 29.5, "lng": 76.5, "zone": "north"},
+    {"id": "dl", "name": "Delhi", "lat": 28.6, "lng": 77.2, "zone": "north"},
+    {"id": "rj", "name": "Rajasthan", "lat": 27.0, "lng": 74.0, "zone": "northwest"},
+    {"id": "up", "name": "Uttar Pradesh", "lat": 27.0, "lng": 80.5, "zone": "north"},
+    # Central / East
+    {"id": "br", "name": "Bihar", "lat": 25.5, "lng": 85.5, "zone": "east"},
+    {"id": "jh", "name": "Jharkhand", "lat": 23.5, "lng": 85.5, "zone": "east"},
+    {"id": "wb", "name": "West Bengal", "lat": 23.0, "lng": 88.0, "zone": "east"},
+    {"id": "sk", "name": "Sikkim", "lat": 27.5, "lng": 88.5, "zone": "north"},
+    {"id": "as", "name": "Assam", "lat": 26.5, "lng": 92.5, "zone": "northeast"},
+    {"id": "ar", "name": "Arunachal Pradesh", "lat": 28.0, "lng": 94.0, "zone": "northeast"},
+    {"id": "nl", "name": "Nagaland", "lat": 26.0, "lng": 94.5, "zone": "northeast"},
+    {"id": "mn", "name": "Manipur", "lat": 24.5, "lng": 93.5, "zone": "northeast"},
+    {"id": "mz", "name": "Mizoram", "lat": 23.5, "lng": 92.8, "zone": "northeast"},
+    {"id": "tr", "name": "Tripura", "lat": 23.5, "lng": 91.5, "zone": "northeast"},
+    {"id": "ml", "name": "Meghalaya", "lat": 25.5, "lng": 91.5, "zone": "northeast"},
+    # West / Central
+    {"id": "gj", "name": "Gujarat", "lat": 22.5, "lng": 71.0, "zone": "west"},
+    {"id": "mp", "name": "Madhya Pradesh", "lat": 23.0, "lng": 78.5, "zone": "central"},
+    {"id": "cg", "name": "Chhattisgarh", "lat": 21.5, "lng": 82.0, "zone": "central"},
+    {"id": "od", "name": "Odisha", "lat": 20.5, "lng": 84.5, "zone": "east"},
+    # South
+    {"id": "mh", "name": "Maharashtra", "lat": 19.0, "lng": 76.0, "zone": "west"},
+    {"id": "ts", "name": "Telangana", "lat": 17.5, "lng": 79.5, "zone": "south"},
+    {"id": "ap", "name": "Andhra Pradesh", "lat": 15.5, "lng": 79.5, "zone": "south"},
+    {"id": "ka", "name": "Karnataka", "lat": 14.5, "lng": 76.0, "zone": "south"},
+    {"id": "ga", "name": "Goa", "lat": 15.3, "lng": 74.0, "zone": "west"},
+    {"id": "kl", "name": "Kerala", "lat": 10.5, "lng": 76.5, "zone": "south"},
+    {"id": "tn", "name": "Tamil Nadu", "lat": 11.0, "lng": 78.5, "zone": "south"},
+    {"id": "py", "name": "Puducherry", "lat": 11.9, "lng": 79.8, "zone": "south"},
+    # Islands
+    {"id": "an", "name": "Andaman & Nicobar", "lat": 11.5, "lng": 92.7, "zone": "islands"},
+    {"id": "ld", "name": "Lakshadweep", "lat": 10.5, "lng": 72.5, "zone": "islands"},
+]
+
+
+def _get_india_regional_risk(flare_class: str):
+    """
+    Compute per-state risk levels for GPS degradation and power grid GIC risk
+    based on flare class and geomagnetic latitude.
+    """
+    letter, number = _parse_flare_class(flare_class)
+
+    # Base severity 0–1 from flare class
+    if letter in ('A', 'B'):
+        base_severity = 0.0
+    elif letter == 'C':
+        base_severity = 0.15 + (number / 10.0) * 0.15
+    elif letter == 'M':
+        base_severity = 0.35 + (number / 10.0) * 0.25
+    elif letter == 'X':
+        base_severity = 0.65 + (number / 10.0) * 0.30
+    else:
+        base_severity = 0.0
+
+    base_severity = min(1.0, base_severity)
+
+    CME_LIKELY_THRESH = 0.55  # Above this, CME likely = power grid risk
+
+    regions = []
+    for reg in INDIA_REGIONS:
+        # GPS risk: latitude-dependent (higher latitude = worse scintillation)
+        # India spans ~8°N to 37°N. Normalize 8→37 to 0→1.
+        lat_norm = (reg["lat"] - 8.0) / 29.0
+        gps_risk = base_severity * (0.7 + 0.3 * lat_norm)
+
+        # Power grid GIC risk: much stronger latitude gradient
+        # Only significant above ~25°N geomagnetic latitude
+        # Scale: 0 at 8°N → 1 at 37°N, with an exponential feel
+        grid_factor = max(0.0, (reg["lat"] - 20.0) / 17.0) ** 1.5
+        grid_risk = base_severity * grid_factor if base_severity > CME_LIKELY_THRESH else 0.0
+
+        # Only emit moderate+ risks
+        def _risk_label(val):
+            if val < 0.15: return "low"
+            if val < 0.35: return "moderate"
+            if val < 0.55: return "high"
+            return "critical"
+
+        def _risk_score(val):
+            if val < 0.15: return 0
+            if val < 0.35: return 1
+            if val < 0.55: return 2
+            return 3
+
+        gps_label = _risk_label(gps_risk)
+        grid_label = _risk_label(grid_risk)
+
+        regions.append({
+            "id": reg["id"],
+            "name": reg["name"],
+            "lat": reg["lat"],
+            "lng": reg["lng"],
+            "zone": reg["zone"],
+            "gps": {
+                "risk": gps_label,
+                "score": _risk_score(gps_risk),
+                "value": round(gps_risk, 3),
+                "description": _gps_risk_desc(gps_label, letter, number)
+            },
+            "powerGrid": {
+                "risk": grid_label,
+                "score": _risk_score(grid_risk),
+                "value": round(grid_risk, 3),
+                "description": _grid_risk_desc(grid_label, reg["name"])
+            }
+        })
+
+    return {
+        "flareClass": flare_class,
+        "baseSeverity": round(base_severity, 2),
+        "cmeLikely": base_severity > CME_LIKELY_THRESH,
+        "regions": regions
+    }
+
+
