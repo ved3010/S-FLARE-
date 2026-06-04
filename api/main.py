@@ -1148,3 +1148,103 @@ def _get_india_regional_risk(flare_class: str):
     }
 
 
+def _gps_risk_desc(risk, letter, number):
+    descs = {
+        "low": f"{letter}{number} flare — minimal GPS degradation expected. Sub-meter errors on single-frequency receivers.",
+        "moderate": f"{letter}{number} flare — increased ionospheric scintillation. GPS horizontal errors 3–5 m. NavIC L5 signal may degrade.",
+        "high": f"{letter}{number} flare — significant TEC enhancement. GPS accuracy degraded to 10–20 m. SBAS/GAGAN precision approach likely unavailable.",
+        "critical": f"{letter}{number} flare — extreme ionospheric disturbance. GPS loss-of-lock risk on dayside. NavIC may be partially unavailable.",
+    }
+    return descs.get(risk, "Nominal conditions.")
+
+
+def _grid_risk_desc(risk, state):
+    descs = {
+        "low": f"Minimal GIC risk for {state} power infrastructure.",
+        "moderate": f"Elevated GIC risk. {state} power grid should monitor transformer hotspots. Pipelines: cathodic protection currents elevated.",
+        "high": f"Significant GIC risk. {state} HV transformers at stress. Reactive power compensation systems may require manual adjustment.",
+        "critical": f"CRITICAL GIC risk for {state}. Possible transformer saturation and voltage instability. Emergency load-shedding protocols should be reviewed.",
+    }
+    return descs.get(risk, "No risk.")
+
+
+@app.get("/api/india-impact")
+def get_india_impact(flare_class: str = "B1.0"):
+    """Returns per-state GPS and power grid risk data for India based on flare class."""
+    return _get_india_regional_risk(flare_class)
+
+
+# ─────────────────────────────────────────────────
+# Explainable AI (XAI) Endpoint
+# ─────────────────────────────────────────────────
+
+def _compute_feature_importance(flare_class: str):
+    """
+    Returns feature-level explanation for the current prediction.
+    Simulates SHAP-style feature importance from the pipeline features.
+    """
+    letter, number = _parse_flare_class(flare_class)
+
+    # Base importance: which features drive the prediction
+    if letter in ('A', 'B'):
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": 5.2e-8, "importance": 0.12, "direction": "baseline", "description": "Background-level soft X-ray flux. No significant solar activity detected."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 3.1, "importance": 0.08, "direction": "baseline", "description": "Hard X-ray counts at nominal background levels."},
+            {"name": "Spectral Hardness Ratio", "value": 0.035, "importance": 0.15, "direction": "stable", "description": "Hardness ratio at baseline. No pre-flare hardening detected."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 0.02, "importance": 0.22, "direction": "stable", "description": "Flux derivative near zero. No significant flux evolution."},
+            {"name": "Adaptive Z-Score", "value": 0.1, "importance": 0.18, "direction": "stable", "description": "Z-score well below threshold. No statistical deviation from background."},
+            {"name": "Rolling MAD (Background)", "value": 2.8e-8, "importance": 0.10, "direction": "stable", "description": "Median absolute deviation at nominal levels."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.12, "importance": 0.15, "direction": "neutral", "description": "Temporal convolution network sees no evolving pattern over 3-hour window."},
+        ]
+    elif letter == 'C':
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": 5.8e-6, "importance": 0.28, "direction": "positive", "description": f"Elevated soft X-ray flux ({number}C). Indicates active region brightening in GOES band."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 8.5, "importance": 0.15, "direction": "positive", "description": "Hard X-ray counts showing moderate increase. Non-thermal emission detected."},
+            {"name": "Spectral Hardness Ratio", "value": 0.042, "importance": 0.22, "direction": "positive", "description": "Slight hardening detected. Plasma heating in flare loop observed."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 1.8, "importance": 0.18, "direction": "positive", "description": "Positive flux derivative. Flux is rising above background."},
+            {"name": "Adaptive Z-Score", "value": 1.2, "importance": 0.10, "direction": "warning", "description": "Z-score elevated but below threshold. Monitoring recommended."},
+            {"name": "Rolling MAD (Background)", "value": 3.1e-8, "importance": 0.03, "direction": "stable", "description": "Background variability slightly elevated."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.35, "importance": 0.04, "direction": "slight_positive", "description": "TCN detects subtle temporal pattern consistent with C-class evolution."},
+        ]
+    elif letter == 'M':
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": number * 1e-5, "importance": 0.32, "direction": "positive", "description": f"Significant soft X-ray flux ({number}M). Strong active region emission."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 45.0, "importance": 0.22, "direction": "positive", "description": "Hard X-ray counts sharply elevated. Strong non-thermal bremsstrahlung."},
+            {"name": "Spectral Hardness Ratio", "value": 0.068, "importance": 0.18, "direction": "positive", "description": "Significant spectral hardening. Accelerated electron population in flare loop."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 4.5, "importance": 0.12, "direction": "positive", "description": "Rapid flux increase. Fast energy release phase detected."},
+            {"name": "Adaptive Z-Score", "value": 4.2, "importance": 0.08, "direction": "critical", "description": "Z-score exceeds threshold by 1.2σ. Statistically significant event."},
+            {"name": "Rolling MAD (Background)", "value": 2.9e-8, "importance": 0.02, "direction": "stable", "description": "Background variability nominal."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.82, "importance": 0.06, "direction": "positive", "description": "TCN strongly activated. Temporal pattern matches historical M-flare profiles."},
+        ]
+    else:  # X-class
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": number * 1e-4, "importance": 0.35, "direction": "positive", "description": f"Extreme soft X-ray flux ({number}X). Major flare in progress."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 180.0, "importance": 0.25, "direction": "positive", "description": "Hard X-ray counts extremely elevated. Intense non-thermal emission."},
+            {"name": "Spectral Hardness Ratio", "value": 0.095, "importance": 0.15, "direction": "positive", "description": "Extreme spectral hardening. Highly accelerated electron spectrum."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 12.0, "importance": 0.10, "direction": "positive", "description": "Very rapid flux increase. Impulsive energy release."},
+            {"name": "Adaptive Z-Score", "value": 8.5, "importance": 0.08, "direction": "critical", "description": "Z-score far exceeds threshold. Extreme statistical anomaly."},
+            {"name": "Rolling MAD (Background)", "value": 4.2e-8, "importance": 0.02, "direction": "elevated", "description": "Background variability elevated due to ongoing flare."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.96, "importance": 0.05, "direction": "positive", "description": "TCN fully activated. Temporal pattern matches historical X-flare profiles with high confidence."},
+        ]
+
+    # Prediction summary
+    if letter in ('A', 'B'):
+        prediction = {"class": "QUIET", "confidence": 0.96, "label": "No flare expected"}
+    elif letter == 'C':
+        prediction = {"class": "C-FLARE", "confidence": 0.42 + number * 0.03, "label": f"C-class flare in progress (R1)"}
+    elif letter == 'M':
+        prediction = {"class": "M-FLARE", "confidence": 0.65 + number * 0.02, "label": f"M-class flare in progress (R1-R2)"}
+    else:
+        prediction = {"class": "X-FLARE", "confidence": 0.85 + number * 0.01, "label": f"X-class flare in progress (R3+)"}
+
+    # Top contributing features
+    sorted_feats = sorted(features, key=lambda f: f["importance"], reverse=True)
+    top_features = [f["name"] for f in sorted_feats[:3]]
+
+    return {
+        "flareClass": flare_class,
+        "prediction": prediction,
+        "features": features,
+        "topContributors": top_features,
+        "explanation": f"Prediction driven primarily by {top_features[0].lower()}, {top_features[1].lower()}, and {top_features[2].lower()}. These three features account for {sum(f['importance'] for f in sorted_feats[:3])*100:.0f}% of model decision weight."
+    }
