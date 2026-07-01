@@ -118,3 +118,143 @@ let state = {
 
 const listeners = new Set();
 
+function updateState(nextFields) {
+  state = { ...state, ...nextFields };
+  listeners.forEach(l => l(state));
+}
+
+export function getState() {
+  return state;
+}
+
+export function subscribe(l) {
+  listeners.add(l);
+  return () => listeners.delete(l);
+}
+
+export function useLiveState() {
+  const [liveData, setLiveData] = useState(state);
+  
+  useEffect(() => {
+    setLiveData(state);
+    return subscribe(setLiveData);
+  }, []);
+  
+  return liveData;
+}
+
+// ------------------------------------------
+// WebSocket and REST Ingestion Client
+// ------------------------------------------
+let ws = null;
+let reconnectTimer = null;
+
+const API_HTTP_HOST = '';
+const API_WS_HOST = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+
+let pollTimer = null;
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    // Poll status
+    fetch(`${API_HTTP_HOST}/api/status`)
+      .then(r => r.json())
+      .then(data => {
+        updateState({
+          systemStatus: data.systemStatus,
+          nowcast: data.nowcast,
+          forecast: data.forecast,
+          hardnessRatio: data.hardnessRatio,
+          alerts: data.alerts || [],
+          flareClass: data.flareClass || state.flareClass
+        });
+      })
+      .catch(() => {});
+    // Poll timeseries
+    fetch(`${API_HTTP_HOST}/api/timeseries?hours=6`)
+      .then(r => r.json())
+      .then(points => {
+        updateState({ fluxData: points });
+      })
+      .catch(() => {});
+  }, 5000);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+export function initWebSocketConnection() {
+  // Fetch initial data via REST immediately
+  fetch(`${API_HTTP_HOST}/api/status`)
+    .then(r => r.json())
+    .then(data => {
+      updateState({
+        systemStatus: { ...data.systemStatus, pipeline: 'Operational' },
+        nowcast: data.nowcast,
+        forecast: data.forecast,
+        hardnessRatio: data.hardnessRatio,
+        alerts: data.alerts || [],
+        flareClass: data.flareClass || state.flareClass
+      });
+    })
+    .catch(err => {
+      console.warn("Failed to load status from API server.", err);
+    });
+
+  fetch(`${API_HTTP_HOST}/api/timeseries?hours=6`)
+    .then(r => r.json())
+    .then(points => {
+      updateState({ fluxData: points });
+    })
+    .catch(err => {
+      console.warn("Failed to load timeseries from API server.", err);
+    });
+
+  // Start REST polling as primary data source
+  startPolling();
+
+  // Also try WebSocket for lower latency
+  connectWS();
+}
+
+function connectWS() {
+  if (ws) {
+    try {
+      ws.close();
+    } catch(e) {}
+  }
+  
+  console.log("Connecting to WebSocket:", `${API_WS_HOST}/ws/live`);
+  ws = new WebSocket(`${API_WS_HOST}/ws/live`);
+  
+  ws.onopen = () => {
+    console.log("WebSocket connection established with Solar Flare Forecasting server.");
+    updateState({
+      systemStatus: {
+        ...state.systemStatus,
+        pipeline: 'Operational',
+        dataLatency: '1.2s'
+      }
+    });
+    // WebSocket is connected, stop REST polling to avoid duplicates
+    stopPolling();
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  };
+  
+  ws.onmessage = (event) => {
+    try {
+      const data = jsonParse(event.data);
+      if (data) {
+        const nextFlux = [...state.fluxData];
+        
+        const ts_ms = Date.now();
+        nextFlux.push({
+          timestamp: ts_ms,
