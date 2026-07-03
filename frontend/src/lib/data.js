@@ -378,3 +378,53 @@ export function checkFlareAlert(flareClass) {
 }
 
 export function useNotificationWatcher() {
+  const { flareClass } = useLiveState();
+  useEffect(() => {
+    checkFlareAlert(flareClass);
+  }, [flareClass]);
+}
+
+export async function fetchShortTermForecast() {
+  try {
+    const res = await fetch('/api/short-term-forecast');
+    if (res.ok) {
+      const data = await res.json();
+      updateState({ shortTermForecast: data });
+      return data;
+    }
+  } catch (e) {
+    console.warn("Could not fetch short-term forecast:", e);
+  }
+  return null;
+}
+
+export async function fetchDataQuality() {
+  try {
+    const res = await fetch('/api/data-quality');
+    if (res.ok) {
+      const data = await res.json();
+      updateState({ dataQuality: data });
+      return data;
+    }
+  } catch (e) {
+    console.warn("Could not fetch data quality:", e);
+  }
+  return null;
+}
+
+export async function fetchActualVsPredicted() {
+  try {
+    const res = await fetch('/api/actual-vs-predicted');
+    if (res.ok) {
+      const data = await res.json();
+      updateState({ actualVsPredicted: data });
+      return data;
+    }
+  } catch (e) {
+    console.warn("Could not fetch actual vs predicted:", e);
+  }
+  return [];
+}
+
+export async function fetchModelComparison() {
+  try {
