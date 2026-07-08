@@ -73,3 +73,58 @@ export default function StatusBlock() {
               <span>⚡ 1-Minute Forecast</span>
               <span className="ai-badge text-[7px] bg-amber-500/20 text-amber-300">T+60s</span>
             </div>
+            <span className="text-[8px] font-mono text-white/40">{f1.targetTime !== '—' ? f1.targetTime.slice(11, 19) + ' UTC' : 'T+1m'}</span>
+          </div>
+          
+          <div className="flex items-baseline justify-between">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-black font-mono text-amber-400">{f1.probability}%</span>
+              <span className="text-[8px] font-mono text-white/40 uppercase">flare prob</span>
+            </div>
+            <span className="text-[8px] font-bold font-mono px-2 py-0.5 rounded-md uppercase" style={{ background: `${f1.statusColor || '#F1C40F'}20`, color: f1.statusColor || '#F1C40F', border: `1px solid ${f1.statusColor || '#F1C40F'}40` }}>
+              {f1.status || 'NORMAL'}
+            </span>
+          </div>
+
+          <div className="mt-2.5">
+            <div className="h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/[0.08]">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${f1.probability}%`,
+                  background: f1.statusColor || '#F1C40F',
+                  boxShadow: `0 0 10px ${f1.statusColor || '#F1C40F'}`
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-2 flex justify-between font-mono text-[8.5px] text-white/40">
+            <span>PREDICTED TIME: <strong className="text-white/80">{f1.targetTime !== '—' ? f1.targetTime.slice(11, 19) : '+1 Min'}</strong></span>
+            <span>CONF: <strong className="text-emerald-400">{(f1.confidence * 100).toFixed(0)}%</strong></span>
+          </div>
+        </div>
+
+        {/* 3. 2-MINUTE FORECAST CARD */}
+        <div className="glass rounded-xl p-3.5 hover-float relative overflow-hidden border border-red-500/20 bg-red-500/[0.02]">
+          <div className="text-[9px] uppercase tracking-widest font-bold font-mono text-red-400 mb-1.5 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span>🚨 2-Minute Forecast</span>
+              <span className="ai-badge text-[7px] bg-red-500/20 text-red-300">T+120s</span>
+            </div>
+            <span className="text-[8px] font-mono text-white/40">{f2.targetTime !== '—' ? f2.targetTime.slice(11, 19) + ' UTC' : 'T+2m'}</span>
+          </div>
+
+          <div className="flex items-baseline justify-between">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-black font-mono text-red-400">{f2.probability}%</span>
+              <span className="text-[8px] font-mono text-white/40 uppercase">flare prob</span>
+            </div>
+            <span className="text-[8px] font-bold font-mono px-2 py-0.5 rounded-md uppercase" style={{ background: `${f2.statusColor || '#E74C3C'}20`, color: f2.statusColor || '#E74C3C', border: `1px solid ${f2.statusColor || '#E74C3C'}40` }}>
+              {f2.status || 'NORMAL'}
+            </span>
+          </div>
+
+          <div className="mt-2.5">
+            <div className="h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/[0.08]">
+              <div
