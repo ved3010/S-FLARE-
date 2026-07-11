@@ -258,3 +258,123 @@ export default function FluxChart({ data, range, onRange }) {
         </div>
 
         {/* Soft X-Ray */}
+        <div className={`flex justify-between items-center ${fs ? 'gap-8' : 'gap-3 sm:gap-6'}`}>
+          <span className={fs ? 'text-[#566176] text-xs' : 'text-[#566176]'}>SOFT X-RAY:</span>
+          <span className={`text-[#E67E22] font-bold ${fs ? 'text-sm' : ''}`}>
+            {closestPoint.softFlux.toExponential(fs ? 2 : 1)}
+            <span className="text-[#566176] ml-1">({getGoesClass(closestPoint.softFlux)})</span>
+          </span>
+        </div>
+
+        {/* Hard X-Ray */}
+        <div className={`flex justify-between items-center ${fs ? 'gap-8' : 'gap-3 sm:gap-6'}`}>
+          <span className={fs ? 'text-[#566176] text-xs' : 'text-[#566176]'}>HARD X-RAY:</span>
+          <span className={`text-[#3498DB] font-bold ${fs ? 'text-sm' : ''}`}>
+            {closestPoint.hardFlux.toExponential(fs ? 2 : 1)}
+          </span>
+        </div>
+
+        {/* Hardness Ratio */}
+        <div className={`flex justify-between items-center border-t border-[rgba(255,255,255,0.06)] ${fs ? 'pt-2 mt-2' : 'pt-1 mt-1'}`}>
+          <span className={fs ? 'text-[#566176] text-xs' : 'text-[#566176]'}>HARDNESS:</span>
+          <span className={`text-green-400 font-bold ${fs ? 'text-sm' : ''}`}>
+            {closestPoint.hardnessRatio.toFixed(fs ? 4 : 3)}
+          </span>
+        </div>
+
+        {/* Extra details in fullscreen */}
+        {fs && (
+          <>
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-[#566176] text-xs">FLUX RATIO:</span>
+              <span className="text-[#8B949E] text-xs font-mono">
+                {((closestPoint.hardFlux || 0) / Math.max(closestPoint.softFlux, 1e-12)).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[#566176] text-xs">GOES CLASS:</span>
+              <span className="text-[#E6EDF3] font-bold text-sm">
+                {getGoesClass(closestPoint.softFlux)}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // ── Loading state ──────────────────────────────────────────────
+  if (!scales || !filtered.length) {
+    return (
+      <div 
+        className="h-full flex flex-col justify-center items-center p-6 text-center select-none"
+        style={{ overflow: 'hidden', position: 'relative' }}
+      >
+        <div className="w-10 h-10 rounded-full border-2 border-[#30363D] border-t-[#E67E22] animate-spin mb-3" />
+        <span className="text-[#8B949E] text-xs font-mono tracking-wider uppercase">Telemetry Initializing</span>
+        <span className="text-[#566176] text-[10px] font-mono mt-1">Waiting for data stream...</span>
+      </div>
+    );
+  }
+
+  // ── Fullscreen overlay (rendered via portal) ──────────────────
+
+  const fullscreenOverlay = isFs ? createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0D1117]/90 backdrop-blur-xl"
+      style={{ animation: 'fadeIn 0.2s ease-out' }}
+      onClick={() => setFullscreen(false)}
+    >
+      <div
+        className="w-[94vw] h-[90vh] glass-heavy rounded-2xl flex flex-col overflow-hidden shadow-2xl"
+        style={{ boxShadow: '0 25px 80px rgba(0,0,0,0.6), 0 0 40px rgba(230,126,34,0.05)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* FS Header */}
+        <div className="px-5 sm:px-8 py-4 border-b border-white/10 flex items-center justify-between bg-black/20 select-none shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-[#FFFFFF] to-[#3498DB]" />
+            <h2 className="text-sm sm:text-base uppercase font-mono tracking-wider font-bold text-[#E6EDF3]">
+              X-Ray Flux — Expanded View
+            </h2>
+            <span className="text-[9px] sm:text-[11px] text-[#484F58] font-mono">Aditya-L1 · Real-time</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Range selector */}
+            <div className="flex bg-[#0D1117]/60 backdrop-blur-sm p-0.5 border border-[rgba(255,255,255,0.06)] rounded-md">
+              {[1, 3, 6, 12, 24].map(h => (
+                <button
+                  key={h}
+                  className={`text-[9px] sm:text-[11px] font-mono px-2 sm:px-3 py-1 rounded cursor-pointer transition-all duration-200 ${
+                    range === h
+                      ? 'bg-white text-black font-bold shadow-sm'
+                      : 'text-[#8B949E] hover:text-white hover:bg-[#21262D]/50'
+                  }`}
+                  onClick={() => onRange(h)}
+                >
+                  {h}H
+                </button>
+              ))}
+            </div>
+
+            {/* Close button */}
+            <button
+              onClick={() => setFullscreen(false)}
+              className="text-[#8B949E] hover:text-white transition-colors duration-200 p-1.5 rounded-lg hover:bg-[#21262D]/50 cursor-pointer"
+              title="Close fullscreen (Esc)"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="4 14 10 14 10 20" />
+                <polyline points="20 10 14 10 14 4" />
+                <line x1="14" y1="10" x2="21" y2="3" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* FS SVG Canvas */}
+        <div ref={fsContainerRef} className="p-3 sm:p-6 flex-1 overflow-hidden relative">
+          {renderChartSvg()}
+          {renderTooltip()}
