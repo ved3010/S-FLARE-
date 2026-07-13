@@ -378,3 +378,43 @@ export default function FluxChart({ data, range, onRange }) {
         <div ref={fsContainerRef} className="p-3 sm:p-6 flex-1 overflow-hidden relative">
           {renderChartSvg()}
           {renderTooltip()}
+        </div>
+
+        {/* FS Footer hint */}
+        <div className="px-5 sm:px-8 py-2 border-t border-white/10 flex items-center justify-between bg-black/10 shrink-0">
+          <span className="text-[8px] sm:text-[10px] font-mono text-[#484F58]">
+            Hover over chart for detailed values · Press <kbd className="px-1.5 py-0.5 bg-[#21262D] border border-[rgba(255,255,255,0.08)] rounded text-[7px] sm:text-[9px]">Esc</kbd> to close
+          </span>
+          <span className="text-[8px] sm:text-[10px] font-mono text-[#484F58]">
+            {filtered.length.toLocaleString()} data points · {range}H window
+          </span>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
+
+  // ── Normal card view ────────────────────────────────────────────
+
+  return (
+    <>
+      {fullscreenOverlay}
+      <div
+        className="h-full flex flex-col overflow-hidden relative"
+      >
+        {/* Header */}
+        <div className="dash-card-header">
+          <div className="dash-card-header-left">
+            <div className="dash-card-bar" style={{ background: 'linear-gradient(180deg, #FFFFFF, #3498DB)' }} />
+            <span className="dash-card-title">X-Ray Flux</span>
+            <span className="dash-card-sub">Aditya-L1 · 1-min cadence</span>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            {/* Legend */}
+            <div className="flex items-center gap-2 sm:gap-3 text-[8px] sm:text-[9px] font-mono">
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-[2px] bg-[#E67E22] inline-block rounded-full" style={{ boxShadow: '0 0 4px rgba(230,126,34,0.5)' }} />
+                <span className="text-[#8B949E] hidden xs:inline">SOFT</span>
+              </div>
