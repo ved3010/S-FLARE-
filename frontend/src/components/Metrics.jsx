@@ -88,3 +88,73 @@ export default function Metrics() {
               <tr className="border-b border-white/10 text-white/40 text-[9px] uppercase tracking-wider">
                 <th className="py-2.5 px-3">Model Name</th>
                 <th className="py-2.5 px-3">Horizon</th>
+                <th className="py-2.5 px-3">Type</th>
+                <th className="py-2.5 px-3">Accuracy</th>
+                <th className="py-2.5 px-3">Precision</th>
+                <th className="py-2.5 px-3">Recall</th>
+                <th className="py-2.5 px-3">F1-Score</th>
+                <th className="py-2.5 px-3">ROC-AUC</th>
+                <th className="py-2.5 px-3">Status / Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {displayModels.map((item) => {
+                const isActive = item.active || item.name === activeModelName;
+                const is1Min = item.horizon?.includes('1') || item.name.includes('1min');
+                return (
+                  <tr key={item.name} className={`transition-all hover:bg-white/[0.02] ${isActive ? 'bg-sky-500/[0.06]' : ''}`}>
+                    <td className="py-3 px-3 font-bold text-white flex items-center gap-2">
+                      <span>{item.name}</span>
+                      {isActive && <span className="text-[8px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded font-mono uppercase">ACTIVE</span>}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded font-mono ${is1Min ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'}`}>
+                        {item.horizon || (is1Min ? '+1 min' : '+2 min')}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-white/50 text-[10px]">{item.type}</td>
+                    <td className="py-3 px-3 font-bold text-emerald-400">{item.accuracy}%</td>
+                    <td className="py-3 px-3 text-white/80">{item.precision}%</td>
+                    <td className="py-3 px-3 text-white/80">{item.recall}%</td>
+                    <td className="py-3 px-3 font-bold text-amber-400">{item.f1Score}%</td>
+                    <td className="py-3 px-3 text-sky-400 font-bold">{item.rocAuc}</td>
+                    <td className="py-3 px-3">
+                      {isActive ? (
+                        <span className="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
+                          ✓ ACTIVE INFERENCE
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleSelectModel(item.name)}
+                          disabled={loadingModel}
+                          className="px-2.5 py-1 text-[9px] font-bold uppercase rounded bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all cursor-pointer"
+                        >
+                          ACTIVATE
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* METRIC DEFINITIONS & CONFUSION MATRIX */}
+      {m && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="dash-card p-5 md:col-span-2">
+            <div className="dash-card-header-left mb-4">
+              <div className="dash-card-bar" style={{ background: 'linear-gradient(180deg, #8B949E, #566176)' }} />
+              <span className="dash-card-title">Confusion Matrix (2x2 Contingency Table)</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 max-w-md font-mono text-[10px]">
+              <div />
+              <div className="text-[#8B949E] font-bold text-center pb-1">PREDICTED +</div>
+              <div className="text-[#8B949E] font-bold text-center pb-1">PREDICTED -</div>
+
+              <div className="text-[#8B949E] font-bold flex items-center pr-2">ACTUAL +</div>
+              <div className="bg-green-500/10 border border-green-500/30 rounded p-2.5 text-center">
+                <div className="text-lg font-black text-green-400">{m.tp}</div>
+                <div className="text-[8px] text-[#566176] font-bold uppercase mt-0.5">True Positive (TP)</div>
