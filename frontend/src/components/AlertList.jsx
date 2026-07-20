@@ -28,3 +28,32 @@ export default function AlertList({ alerts }) {
             <span className="text-[8px] text-center max-w-[180px] text-white/20">All systems nominal — no anomalous solar activity detected</span>
           </div>
         ) : (
+          displayAlerts.map((a, i) => {
+            const s = LEVEL_STYLES[a.level] || LEVEL_STYLES.GREEN;
+            return (
+              <div 
+                key={i} 
+                className={`p-3 rounded-xl ${s.border} ${s.bg} border-t border-r border-b border-white/[0.04] transition-all duration-200 hover:bg-white/[0.02]`}
+              >
+                <div className="flex items-center justify-between mb-1 text-[9px] font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} style={{ boxShadow: `0 0 6px ${s.glow}` }} />
+                    <span className={`${s.text} uppercase tracking-wider`}>
+                      [{TYPE_ABBR[a.type] || a.type}]
+                    </span>
+                  </div>
+                  <span className="text-white/20 font-normal">
+                    {a.ts ? a.ts.slice(11, 19) : ''} UTC
+                  </span>
+                </div>
+                <div className="text-white/50 text-[9px] leading-relaxed break-words pl-3">
+                  {a.msg}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
