@@ -338,3 +338,163 @@ export default function ImpactPanel() {
           )}
           {stale && <span className="impact-stale-badge ml-2">⚠ DATA MAY BE STALE</span>}
           {error && impactData && (
+            <span className="impact-stale-badge ml-2" style={{ color: '#F87171', borderColor: 'rgba(248,113,113,0.3)' }}>
+              ⚠ Cached data
+            </span>
+          )}
+        </p>
+      </div>
+
+      {/* ── Status Banner ── */}
+      {isNominal ? (
+        <div className="impact-nominal-banner mb-6">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400" style={{ boxShadow: '0 0 12px rgba(52,211,153,0.6)' }} />
+            </span>
+            <div>
+              <span className="text-emerald-300 font-bold text-sm tracking-wide">ALL SYSTEMS NOMINAL</span>
+              <p className="text-emerald-400/40 text-[10px] font-mono mt-0.5">
+                Current solar activity ({flareClass}) poses no threat to satellite infrastructure or ground systems.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="impact-nominal-banner !bg-red-500/10 !border-red-500/35 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-400" style={{ boxShadow: '0 0 12px rgba(239,68,68,0.6)' }} />
+            </span>
+            <div>
+              <span className="text-red-300 font-bold text-sm tracking-wide uppercase">Active Space Weather Alert</span>
+              <p className="text-red-400/40 text-[10px] font-mono mt-0.5">
+                Solar activity ({flareClass}) has triggered a NOAA Scale {noaaScale} impact report. Operational mitigation protocols recommended.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TCN Forecast + Mission Status Row ── */}
+      <div className="tcn-mission-row">
+        {/* TCN Forecast Card */}
+        <div className="tcn-mission-col">
+          <TcnForecastCard forecast={forecast} flareClass={flareClass} systemStatus={systemStatus} />
+        </div>
+
+        {/* Aditya-L1 Mission Status Card */}
+        <div className="tcn-mission-col">
+          <div className="dash-card animate-fadeInUp h-full">
+            <div className="dash-card-header">
+              <div className="dash-card-header-left">
+                <div className="dash-card-bar" style={{ background: 'linear-gradient(180deg, #34D399, #38BDF8)' }} />
+                <span className="dash-card-title">Aditya-L1 Mission</span>
+                <span className="dash-card-sub">PRADAN · SoLEXS · HEL1OS</span>
+              </div>
+            </div>
+            <div className="dash-card-body" style={{ padding: '14px 18px 18px' }}>
+              {/* Instrument dashboard */}
+              <div className="instrument-grid mb-4">
+                <div className="instrument-card">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px rgba(52,211,153,0.5)' }} />
+                    <span className="text-[9px] font-mono font-bold text-white/70">SoLEXS</span>
+                    <span className="text-[6px] font-mono text-emerald-400/60 ml-auto">ONLINE</span>
+                  </div>
+                  <span className="text-[8px] font-mono text-white/35">SDD1 + SDD2 · Soft X-ray (0.1-0.8nm)</span>
+                  <div className="mt-1.5 text-[8px] font-mono text-white/25">Flux: <span className="text-white/50">{(nowcast.peakFlux || 5e-8).toExponential(2)} W/m²</span></div>
+                </div>
+                <div className="instrument-card">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" style={{ boxShadow: '0 0 6px rgba(52,211,153,0.5)' }} />
+                    <span className="text-[9px] font-mono font-bold text-white/70">HEL1OS</span>
+                    <span className="text-[6px] font-mono text-emerald-400/60 ml-auto">ONLINE</span>
+                  </div>
+                  <span className="text-[8px] font-mono text-white/35">CdTe + CZT · Hard X-ray (5-150 keV)</span>
+                  <div className="mt-1.5 text-[8px] font-mono text-white/25">Hardness: <span className="text-white/50">{(forecast.tcnConfidence || 0.12).toFixed(2)} ratio</span></div>
+                </div>
+              </div>
+
+              {/* Status row */}
+              <AdityaMissionStatus systemStatus={systemStatus} />
+
+              {/* Additional context */}
+              <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/[0.04]">
+                <span className="text-[7px] font-mono text-white/20">Lagrange Point L1 · halo orbit</span>
+                <span className="text-[7px] font-mono text-white/15">{nowcast.currentPhase || 'Quiet Sun'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Category Cards Grid ── */}
+      <div className="impact-grid mt-6">
+        {categories.map((cat, i) => {
+          const risk = RISK_COLORS[cat.risk_level] || RISK_COLORS.low;
+          const IconComp = CATEGORY_ICONS[cat.category] || IconScience;
+          const isCritical = cat.risk_level === 'critical';
+
+          return (
+            <div
+              key={cat.category}
+              className={`impact-card ${isCritical ? 'impact-card-critical' : ''}`}
+              style={{ animationDelay: `${i * 0.06}s`, borderColor: risk.border }}
+            >
+              {/* Card Header */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: risk.bg, color: risk.text }}>
+                  <IconComp />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xs font-bold text-white/90 tracking-wide uppercase truncate">{cat.category}</h3>
+                  <span
+                    className="inline-block mt-1 px-2 py-0.5 rounded-full text-[8px] font-bold font-mono uppercase tracking-wider"
+                    style={{ background: risk.bg, color: risk.text, border: `1px solid ${risk.border}` }}
+                  >
+                    {risk.label} RISK
+                  </span>
+                </div>
+              </div>
+
+              {/* Effect Description */}
+              <p className="text-[11px] text-white/50 leading-relaxed mb-3 font-mono">{cat.effect}</p>
+
+              {/* Systems Tags */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {cat.systems.map((sys) => (
+                  <span
+                    key={sys}
+                    className="px-2 py-0.5 rounded-full text-[8px] font-mono font-semibold bg-white/[0.04] text-white/50 border border-white/[0.06]"
+                  >
+                    {sys}
+                  </span>
+                ))}
+              </div>
+
+              {/* Recovery Time + Score bar */}
+              <div className="flex items-center justify-between gap-2 text-[9px] font-mono text-white/35 mb-2 border-t border-white/[0.05] pt-2.5">
+                <div className="flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span>RECOVERY: <span className="text-white/55 font-semibold">{cat.recovery_time}</span></span>
+                </div>
+              </div>
+
+              {/* Risk score bar */}
+              <div className="h-1 rounded-full bg-white/[0.04] overflow-hidden mb-2">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: cat.risk_level === 'critical' ? '95%' : cat.risk_level === 'high' ? '70%' : cat.risk_level === 'moderate' ? '40%' : '12%',
+                    background: `${risk.text}66`,
+                    boxShadow: `0 0 6px ${risk.text}44`,
+                  }}
+                />
+              </div>
+
