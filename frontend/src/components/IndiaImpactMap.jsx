@@ -148,3 +148,203 @@ export default function IndiaImpactMap() {
       setMapData(data);
       lastFetchedClass.current = fc;
     } catch (err) {
+      console.error('Failed to fetch India impact map:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Re-fetch on flareClass change (WebSocket live update)
+  useEffect(() => {
+    if (flareClass && flareClass !== lastFetchedClass.current) {
+      fetchData(flareClass);
+    }
+  }, [flareClass, fetchData]);
+
+  // ── Time Animation ──
+  useEffect(() => {
+    if (!isAnimating) {
+      if (animRef.current) clearInterval(animRef.current);
+      return;
+    }
+    animRef.current = setInterval(() => {
+      setForecastHour(prev => {
+        const next = prev + 0.5;
+        return next >= 24 ? 0 : next;
+      });
+    }, 80);
+    return () => clearInterval(animRef.current);
+  }, [isAnimating]);
+
+  // ── Get risk at current forecast hour, interpolating from base ──
+  const getInterpolatedRisk = useCallback((region) => {
+    if (!mapData) return null;
+    const base = region.gps?.value || 0;
+    const multiplier = riskAtHour(1.0, forecastHour);
+    const severityScale = baseSeverity > 0 ? base / baseSeverity : 0.5;
+    const interpolated = base * multiplier;
+
+    function label(v) {
+      if (v < 0.08) return 'low';
+      if (v < 0.22) return 'moderate';
+      if (v < 0.42) return 'high';
+      return 'critical';
+    }
+
+    const risk = mode === 'gps' ? { ...region.gps } : { ...region.powerGrid };
+    const origVal = mode === 'gps' ? (region.gps?.value || 0) : (region.powerGrid?.value || 0);
+    const newVal = origVal * multiplier;
+    const newRisk = label(newVal);
+    const origRisk = mode === 'gps' ? region.gps?.risk : region.powerGrid?.risk;
+
+    return {
+      risk: newRisk,
+      value: newVal,
+      originalRisk: origRisk,
+      originalValue: origVal,
+    };
+  }, [mapData, mode, forecastHour, baseSeverity]);
+
+  // ── Hover ──
+  const handleStateHover = useCallback((e, stateId) => {
+    const stateData = mapData?.regions?.find(r => r.id === stateId);
+    if (!stateData) return;
+    setHoveredState(stateData);
+    setHoveredStation(null);
+    const rect = e.target.getBoundingClientRect();
+    const mapRect = mapRef.current?.getBoundingClientRect();
+    if (mapRect) {
+      setTooltipPos({ x: rect.left - mapRect.left + rect.width / 2, y: rect.top - mapRect.top - 6 });
+    }
+  }, [mapData]);
+
+  const handleStationHover = useCallback((e, station) => {
+    setHoveredStation(station);
+    setHoveredState(null);
+    const rect = e.target.getBoundingClientRect();
+    const mapRect = mapRef.current?.getBoundingClientRect();
+    if (mapRect) {
+      setStationTooltipPos({ x: rect.left - mapRect.left + rect.width / 2, y: rect.top - mapRect.top - 6 });
+    }
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredState(null);
+    setHoveredStation(null);
+  }, []);
+
+  // ── Stats ──
+  const stats = (() => {
+    if (!mapData?.regions) return { critical: 0, high: 0, moderate: 0, low: 0 };
+    const s = { critical: 0, high: 0, moderate: 0, low: 0 };
+    mapData.regions.forEach(r => {
+      const interpolated = getInterpolatedRisk(r);
+      const risk = interpolated?.risk || (mode === 'gps' ? r.gps.risk : r.powerGrid.risk);
+      s[risk]++;
+    });
+    return s;
+  })();
+
+  const overall = stats.critical > 0
+    ? { text: '#F87171', bg: 'rgba(248,113,113,0.12)', label: 'CRITICAL' }
+    : stats.high > 0
+    ? { text: '#FB923C', bg: 'rgba(251,146,60,0.12)', label: 'HIGH' }
+    : stats.moderate > 0
+    ? { text: '#FBBF24', bg: 'rgba(251,191,36,0.12)', label: 'MODERATE' }
+    : { text: '#34D399', bg: 'rgba(52,211,153,0.12)', label: 'NOMINAL' };
+
+  const riskLegend = ['low', 'moderate', 'high', 'critical'];
+  const modeLabel = mode === 'gps' ? 'GPS/Navigation' : 'Power Grid';
+
+  // ── Animate indicator ──
+  const animPct = (forecastHour / 24) * 100;
+
+  if (loading && !mapData) return <MapSkeleton />;
+
+  // Since we're rendering, compute diagnostics for ISRO sidebar
+  const getStationStatus = (st) => {
+    const sev = baseSeverity * riskAtHour(1.0, forecastHour);
+    const s4 = 0.02 + sev * 0.95;
+    const gic = 0.1 + sev * 79.9;
+    let statusText = 'NOMINAL';
+    let statusColor = '#34D399';
+    let bg = 'rgba(52,211,153,0.06)';
+    if (s4 > 0.7) {
+      statusText = 'CRITICAL';
+      statusColor = '#F87171';
+      bg = 'rgba(248,113,113,0.1)';
+    } else if (s4 > 0.4) {
+      statusText = 'WARNING';
+      statusColor = '#FB923C';
+      bg = 'rgba(251,146,60,0.08)';
+    } else if (s4 > 0.15) {
+      statusText = 'ELEVATED';
+      statusColor = '#FBBF24';
+      bg = 'rgba(251,191,36,0.06)';
+    }
+    return { s4, gic, statusText, statusColor, bg };
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {/* ── Map & Controls Column ── */}
+      <div className="lg:col-span-3 india-map-wrapper flex flex-col justify-between h-full">
+        <div>
+          {/* Controls Row */}
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">{modeLabel}</span>
+              {mapData && (
+                <span className="text-[7px] font-mono font-bold px-1.5 py-0.5 rounded-full tracking-wider uppercase" style={{ background: overall.bg, color: overall.text }}>
+                  {overall.label}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setShowIsro(v => !v)}
+                className={`px-2 py-1 rounded-md text-[8px] font-mono font-bold tracking-wider uppercase transition-all duration-200 ${
+                  showIsro ? 'text-white bg-white/[0.12]' : 'text-white/25 hover:text-white/50'
+                }`}
+                title="Toggle ISRO ground stations"
+              >
+                ISRO {showIsro ? 'ON' : 'OFF'}
+              </button>
+              <div className="w-px h-3 bg-white/[0.06]" />
+              <button onClick={() => setMode('gps')} className={`px-2.5 py-1 rounded-md text-[8px] font-mono font-bold tracking-wider uppercase transition-all duration-200 ${mode === 'gps' ? 'text-white bg-white/[0.12]' : 'text-white/25 hover:text-white/50'}`}>GPS</button>
+              <button onClick={() => setMode('grid')} className={`px-2.5 py-1 rounded-md text-[8px] font-mono font-bold tracking-wider uppercase transition-all duration-200 ${mode === 'grid' ? 'text-white bg-white/[0.12]' : 'text-white/25 hover:text-white/50'}`}>GRID</button>
+            </div>
+          </div>
+
+          {/* Time Slider */}
+          <div className="mb-4 px-0.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[7px] font-mono font-bold text-white/25 uppercase tracking-wider">Forecast Timeline: T+{forecastHour}h</span>
+              <button
+                onClick={() => setIsAnimating(v => !v)}
+                className={`text-[7px] font-mono font-bold px-1.5 py-0.5 rounded tracking-wider uppercase transition-all ${
+                  isAnimating ? 'text-[#38BDF8] bg-[#38BDF8]/10' : 'text-white/25 hover:text-white/50'
+                }`}
+              >
+                {isAnimating ? '⏹ STOP' : '▶ PLAY'}
+              </button>
+            </div>
+            <div
+              className="relative h-1.5 rounded-full cursor-pointer overflow-hidden"
+              style={{ background: 'rgba(255,255,255,0.06)' }}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const pct = (e.clientX - rect.left) / rect.width;
+                setForecastHour(Math.round(pct * 24));
+              }}
+            >
+              <div
+                className="h-full rounded-full transition-all duration-100"
+                style={{ width: `${animPct}%`, background: 'linear-gradient(90deg, #34D399, #FBBF24, #F87171)', boxShadow: '0 0 8px rgba(248,113,113,0.3)' }}
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white transition-all duration-100"
+                style={{ left: `calc(${animPct}% - 5px)`, boxShadow: '0 0 8px rgba(255,255,255,0.4)' }}
+              />
+            </div>
+            <div className="flex justify-between mt-0.5">
