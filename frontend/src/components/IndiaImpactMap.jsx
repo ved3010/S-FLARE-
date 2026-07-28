@@ -348,3 +348,153 @@ export default function IndiaImpactMap() {
               />
             </div>
             <div className="flex justify-between mt-0.5">
+              <span className="text-[6px] font-mono text-white/15">Now</span>
+              <span className="text-[6px] font-mono text-white/15">+12h</span>
+              <span className="text-[6px] font-mono text-white/15">+24h</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Map Vector */}
+        <div className="relative w-full max-w-[340px] mx-auto" ref={mapRef}>
+          <svg viewBox="0 0 340 400" className="w-full h-auto" style={{ filter: 'drop-shadow(0 4px 24px rgba(0,0,0,0.4))' }}>
+            <path d="M68,108 Q56,130 62,152 L84,156 Q88,166 94,172 L78,188 Q72,198 84,208 L96,212 Q106,218 112,228 L122,238 L116,252 Q120,264 132,272 L142,278 L158,282 L174,278 L184,270 Q200,274 210,268 Q220,262 224,252 L232,248 Q242,242 248,232 L254,222 L258,212 L264,200 Q256,186 262,176 L266,166 Q268,156 262,148 L256,140 Q252,130 244,126 L240,118 Q236,108 232,104 L230,96 Q226,88 222,84 L220,76 Q216,68 212,64 L206,56 Q200,50 194,46 L184,42 Q176,36 168,34 L158,30 Q148,26 142,34 L136,44 Q130,52 126,56 L118,60 Q108,64 102,70 L88,76 Q78,84 74,94 L68,108 Z" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.2" />
+
+            {mapData?.regions?.map((region) => {
+              const path = STATE_PATHS[region.id];
+              if (!path) return null;
+              const interpolated = getInterpolatedRisk(region);
+              const risk = interpolated?.risk || (mode === 'gps' ? region.gps.risk : region.powerGrid.risk);
+              const colors = getRiskColor(risk);
+              const isHovered = hoveredState?.id === region.id;
+
+              return (
+                <g key={region.id}>
+                  {isHovered && <path d={path.d} fill={colors.glow} stroke={colors.text} strokeWidth="2" opacity="0.5" />}
+                  <path
+                    d={path.d}
+                    fill={colors.fill}
+                    stroke={isHovered ? colors.text : colors.stroke}
+                    strokeWidth={isHovered ? 1.5 : 0.7}
+                    opacity={isHovered ? 1 : 0.82}
+                    className="cursor-pointer"
+                    style={{ transition: 'fill 0.4s ease, stroke 0.3s, opacity 0.2s' }}
+                    onMouseEnter={(e) => handleStateHover(e, region.id)}
+                    onMouseLeave={handleMouseLeave}
+                  />
+                  <text
+                    x={STATE_LABELS[region.id]?.x || 0} y={STATE_LABELS[region.id]?.y || 0}
+                    textAnchor="middle" dominantBaseline="central"
+                    fill={isHovered ? colors.text : 'rgba(255,255,255,0.22)'}
+                    fontSize="5" fontFamily="'JetBrains Mono', monospace" fontWeight="700"
+                    className="pointer-events-none select-none"
+                    style={{ transition: 'fill 0.3s' }}
+                  >{path.label}</text>
+                </g>
+              );
+            })}
+
+            {showIsro && ISRO_STATIONS.map(st => {
+              const isHovered = hoveredStation?.id === st.id;
+              const beaconColor = '#38BDF8';
+              return (
+                <g key={st.id}>
+                  <line x1={st.x} y1={st.y} x2={st.x} y2={st.y + 12} stroke="rgba(56,189,248,0.12)" strokeWidth="0.6" strokeDasharray="2,2" />
+                  <circle cx={st.x} cy={st.y} r={isHovered ? 6 : 4} fill="none" stroke={beaconColor} strokeWidth={isHovered ? 1.5 : 0.8} opacity={isHovered ? 0.8 : 0.4}>
+                    {!isHovered && <animate attributeName="r" values="3;5;3" dur="2.5s" repeatCount="indefinite" />}
+                  </circle>
+                  <circle cx={st.x} cy={st.y} r="2.5" fill={beaconColor} opacity={isHovered ? 1 : 0.7} style={{ boxShadow: '0 0 6px rgba(56,189,248,0.6)' }}>
+                    <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
+                  </circle>
+                  <text x={st.x} y={st.y - 6} textAnchor="middle" fill={isHovered ? beaconColor : 'rgba(56,189,248,0.4)'} fontSize="3.5" fontFamily="'JetBrains Mono', monospace" fontWeight="600" className="pointer-events-none select-none">{st.city}</text>
+                  <circle cx={st.x} cy={st.y} r="7" fill="transparent" className="cursor-pointer" onMouseEnter={(e) => handleStationHover(e, st)} onMouseLeave={handleMouseLeave} />
+                </g>
+              );
+            })}
+
+            {mapData && (
+              <g>
+                <circle cx="182" cy="82" r="3" fill="none" stroke="#38BDF8" strokeWidth="1" opacity="0.4">
+                  <animate attributeName="opacity" values="0.2;0.7;0.2" dur="3s" repeatCount="indefinite" />
+                  <animate attributeName="r" values="2;4;2" dur="3s" repeatCount="indefinite" />
+                </circle>
+                <text x="182" y="74" textAnchor="middle" fill="#38BDF8" fontSize="3.5" fontFamily="'JetBrains Mono', monospace" fontWeight="600" opacity="0.35">NAVIC</text>
+              </g>
+            )}
+          </svg>
+
+          {/* Tooltip: State */}
+          {hoveredState && (
+            <div className="absolute pointer-events-none z-10" style={{ left: tooltipPos.x, top: tooltipPos.y, transform: 'translate(-50%, -100%)' }}>
+              <div className="glass px-2.5 py-1.5 rounded-lg" style={{ minWidth: '160px', maxWidth: '220px' }}>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-white/90">{hoveredState.name}</span>
+                  {(() => {
+                    const r = getInterpolatedRisk(hoveredState);
+                    const risk = r?.risk || (mode === 'gps' ? hoveredState.gps.risk : hoveredState.powerGrid.risk);
+                    const c = getRiskColor(risk);
+                    const changed = r && r.originalRisk !== r.risk;
+                    return (
+                      <span className="text-[6px] font-mono font-bold px-1 py-0.5 rounded-full tracking-wider uppercase flex items-center gap-1" style={{ background: c.fill, color: c.text, border: `1px solid ${c.stroke}` }}>
+                        {risk}
+                        {changed && <span className="text-white/40 text-[5px]">({r.originalRisk})</span>}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="text-[7px] font-mono text-white/25 mb-0.5">{hoveredState.lat}°N · Zone: {hoveredState.zone.toUpperCase()}</div>
+                <p className="text-[8px] font-mono text-white/45 leading-relaxed">{mode === 'gps' ? hoveredState.gps.description : hoveredState.powerGrid.description}</p>
+                {(() => {
+                  const r = getInterpolatedRisk(hoveredState);
+                  const val = r?.value || (mode === 'gps' ? hoveredState.gps.value : hoveredState.powerGrid.value);
+                  const c = getRiskColor(r?.risk || 'low');
+                  const pct = Math.min(100, val * 100);
+                  return (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <div className="flex-1 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, background: c.text, boxShadow: `0 0 4px ${c.text}` }} />
+                      </div>
+                      <span className="text-[6px] font-mono text-white/25">{Math.round(pct)}%</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Tooltip: ISRO Station */}
+          {hoveredStation && !hoveredState && (
+            <div className="absolute pointer-events-none z-10" style={{ left: stationTooltipPos.x, top: stationTooltipPos.y, transform: 'translate(-50%, -100%)' }}>
+              <div className="glass px-2.5 py-1.5 rounded-lg" style={{ minWidth: '150px', maxWidth: '200px' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-bold text-white/90">{hoveredStation.name}</span>
+                </div>
+                <div className="text-[7px] font-mono text-white/30 mb-1">{hoveredStation.city} · {hoveredStation.type}</div>
+                <div className="flex items-center gap-2 text-[7px] font-mono text-white/25">
+                  <span className={`px-1 py-0.5 rounded-full ${baseSeverity > 0.3 ? 'bg-[#F87171]/10 text-[#F87171]' : 'bg-[#34D399]/10 text-[#34D399]'}`}>
+                    {baseSeverity > 0.3 ? '⚠ MONITOR' : '✓ NOMINAL'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Legend / Stats Row */}
+        <div className="flex items-center justify-between mt-2 flex-wrap gap-1.5">
+          <div className="flex items-center gap-2">
+            {riskLegend.map((level) => {
+              const c = getRiskColor(level);
+              return (
+                <div key={level} className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-sm" style={{ background: c.fill, border: `1px solid ${c.stroke}` }} />
+                  <span className="text-[6px] font-mono font-bold text-white/25 uppercase tracking-wider">{level === 'moderate' ? 'mod' : level === 'critical' ? 'crit' : level.slice(0, 3)}</span>
+                </div>
+              );
+            })}
+            <div className="w-px h-3 bg-white/[0.06] mx-1" />
+            <span className="text-[6px] font-mono text-white/15">{stats.critical}C · {stats.high}H · {stats.moderate}M · {stats.low}L</span>
+          </div>
+          {showIsro && (
+            <span className="text-[6px] font-mono text-white/15">{ISRO_STATIONS.length} ISRO stations mapped</span>
+          )}
