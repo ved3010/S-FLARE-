@@ -78,3 +78,63 @@ export default function ModelExplanation() {
   const [loading, setLoading] = useState(false);
   const lastFetched = useRef(null);
 
+  const fetchExplanation = useCallback(async (fc) => {
+    if (!fc || fc === lastFetched.current) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/explain?flare_class=${encodeURIComponent(fc)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      setData(d);
+      lastFetched.current = fc;
+    } catch (err) {
+      console.error('XAI fetch failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExplanation(flareClass);
+  }, [flareClass, fetchExplanation]);
+
+  if (loading && !data) return <Skeleton />;
+  if (!data) return <Skeleton />;
+
+  const pred = data.prediction;
+  const sortedFeatures = [...data.features].sort((a, b) => b.importance - a.importance);
+  const top3 = data.topContributors;
+
+  // Confidence color
+  const confColor = pred.confidence > 0.7 ? '#34D399' : pred.confidence > 0.4 ? '#FBBF24' : '#F87171';
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {/* Live Feature Analysis Column */}
+      <div className="lg:col-span-3 space-y-4">
+        {/* Header - Prediction Summary */}
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono font-bold text-white/40 uppercase tracking-wider">Model Decision</span>
+            <span className="text-[8px] font-mono font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.06)', color: confColor, border: `1px solid ${confColor}40` }}>
+              {pred.class} · {(pred.confidence * 100).toFixed(0)}% confidence
+            </span>
+          </div>
+          <span className="text-[7px] font-mono text-white/20">{data.flareClass}</span>
+        </div>
+
+        {/* Explanation text */}
+        <p className="text-[9px] font-mono text-white/40 leading-relaxed mb-4">
+          {data.explanation}
+        </p>
+
+        {/* Top contributors badges */}
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {top3.map((name, i) => (
+            <span key={i} className="text-[7px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-white/[0.04] text-white/30 border border-white/[0.06]">
+              #{i+1} {name.length > 25 ? name.slice(0, 25) + '...' : name}
+            </span>
+          ))}
+        </div>
+
+        {/* Feature importance bars */}
