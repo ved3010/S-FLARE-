@@ -88,3 +88,73 @@ export default function DataExplorer() {
 
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 font-mono text-[11px]">
+                ⚠️ {error}
+              </div>
+            )}
+
+            <button
+              onClick={handleUpload}
+              disabled={loading || !selectedFile}
+              className={`w-full py-2.5 px-4 rounded-lg font-mono text-xs font-bold uppercase transition-all ${loading || !selectedFile ? 'bg-white/10 text-white/40 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-400 text-black shadow-lg shadow-amber-500/20 cursor-pointer'}`}
+            >
+              {loading ? 'Validating & Processing Dataset...' : 'Upload & Validate CSV Dataset'}
+            </button>
+          </div>
+
+          {/* Preprocessing Options */}
+          <div className="glass rounded-xl p-4 space-y-4 text-mono">
+            <div className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">
+              Preprocessing Configuration
+            </div>
+
+            <div className="space-y-1.5 text-[11px]">
+              <label className="text-white/60 text-[10px] block">MISSING VALUE HANDLING:</label>
+              <select
+                value={imputationMethod}
+                onChange={(e) => setImputationMethod(e.target.value)}
+                className="w-full bg-slate-900 border border-white/10 rounded p-2 text-white font-mono text-[11px] focus:outline-none"
+              >
+                <option value="forward_fill">Forward Fill (LOCF)</option>
+                <option value="linear">Linear Interpolation</option>
+                <option value="median">Median Replacement</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5 text-[11px]">
+              <label className="text-white/60 text-[10px] block">FEATURE NORMALIZATION:</label>
+              <select
+                value={scaler}
+                onChange={(e) => setScaler(e.target.value)}
+                className="w-full bg-slate-900 border border-white/10 rounded p-2 text-white font-mono text-[11px] focus:outline-none"
+              >
+                <option value="minmax">MinMaxScaler [0, 1]</option>
+                <option value="standard">StandardScaler (Z-score)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* DATASET SUMMARY & PREVIEW */}
+      {summary && (
+        <div className="space-y-6">
+          {/* Summary Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="dash-card p-4 font-mono">
+              <span className="text-[9px] uppercase tracking-widest text-white/40 font-bold block mb-1">TOTAL OBSERVATIONS</span>
+              <span className="text-2xl font-black text-amber-400">{summary.totalRows.toLocaleString()}</span>
+              <span className="text-[9px] text-white/40 block mt-1">{summary.filename}</span>
+            </div>
+
+            <div className="dash-card p-4 font-mono">
+              <span className="text-[9px] uppercase tracking-widest text-white/40 font-bold block mb-1">CHRONOLOGICAL SPAN</span>
+              <span className="text-xs font-bold text-white block">{summary.startTime}</span>
+              <span className="text-xs font-bold text-white/50 block">to {summary.endTime}</span>
+            </div>
+
+            <div className="dash-card p-4 font-mono">
+              <span className="text-[9px] uppercase tracking-widest text-white/40 font-bold block mb-1">FLARE CLASS BALANCE</span>
+              <div className="flex justify-between items-baseline mt-1">
+                <span className="text-sm font-bold text-red-400">{summary.flareEventCount} Flare</span>
+                <span className="text-sm font-bold text-emerald-400">{summary.nonFlareEventCount} Quiet</span>
+              </div>
