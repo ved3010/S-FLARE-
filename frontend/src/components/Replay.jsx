@@ -98,3 +98,83 @@ export default function Replay({ event }) {
               RESET
             </button>
           </div>
+          
+          <div className="h-6 w-[1px] bg-[#30363D]" />
+          
+          {/* Speed Multiplier */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[#8B949E] font-mono uppercase">ACCELERATION:</span>
+            <div className="flex bg-[#0D1117] p-0.5 border border-[#30363D] rounded">
+              {[1, 5, 10, 50, 100].map(s => (
+                <button 
+                  key={s} 
+                  className={`text-[10px] font-mono px-2.5 py-0.5 rounded cursor-pointer transition-all ${speed === s ? 'bg-white text-black font-bold shadow-sm' : 'text-[#8B949E] hover:text-white'}`} 
+                  onClick={() => setSpeed(s)}
+                >
+                  {s}X
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-6 w-[1px] bg-[#30363D]" />
+
+          {/* Telemetry Source */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[#8B949E] font-mono uppercase">STREAM SOURCE:</span>
+            <div className="flex bg-[#0D1117] p-0.5 border border-[#30363D] rounded">
+              {['PRADAN', 'GOES', 'SIMULATED'].map(s => (
+                <button 
+                  key={s} 
+                  className={`text-[10px] font-mono px-2.5 py-0.5 rounded cursor-pointer transition-all ${source === s ? 'bg-white text-black font-bold shadow-sm' : 'text-[#8B949E] hover:text-white'}`} 
+                  onClick={() => setSource(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Seek Track Bar */}
+      <div className="dash-card p-4 mb-4">
+        <div className="relative cursor-pointer" onClick={handleSeek}>
+          <div className="h-2 bg-[#0D1117] border border-[#30363D] rounded-full overflow-hidden">
+            <div className="h-full bg-white rounded-full transition-all duration-100" style={{ width: `${pct}%`, boxShadow: '0 0 10px rgba(255,255,255,0.3)' }} />
+          </div>
+          <div className="flex justify-between items-center mt-2.5">
+            <span className="text-[10px] text-[#8B949E] font-mono">
+              TIME TAG: <span className="text-[#E6EDF3]">{activePoint ? new Date(activePoint.timestamp).toISOString().slice(11, 19) : '00:00:00'} UTC</span>
+            </span>
+            <span className="text-xs text-white font-mono font-bold">
+              PROGRESS: {pct.toFixed(0)}%
+            </span>
+            <span className="text-[10px] text-[#8B949E] font-mono">
+              DURATION: {replayPoints.length > 0 ? `+${Math.floor((replayPoints.length * 10) / 60)} min` : '+60 min'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Realtime Readings */}
+      <div className="dash-card p-4 space-y-4">
+        <div className="dash-card-header-left">
+          <div className="dash-card-bar" style={{ background: 'linear-gradient(180deg, #FFFFFF, #3498DB)' }} />
+          <span className="dash-card-title">Replayed Physical Telemetry</span>
+          {simulating && (
+            <span className="text-[9px] font-mono text-white/60 uppercase animate-pulse ml-3">
+              SYNCING REPLAY STREAM...
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="dash-card-body !p-4 text-center">
+            <div className="text-[9px] uppercase tracking-wider font-semibold font-mono text-[#8B949E] mb-1">SoLEXS (Soft X-Ray)</div>
+            <div className="text-xl font-bold font-mono text-[#E6EDF3]">{fmtFlux(soft)}</div>
+            <div className="text-[8px] text-[#566176] font-mono mt-1">W/m²</div>
+          </div>
+          <div className="dash-card-body !p-4 text-center">
+            <div className="text-[9px] uppercase tracking-wider font-semibold font-mono text-[#8B949E] mb-1">HEL1OS (Hard X-Ray)</div>
+            <div className="text-xl font-bold font-mono text-[#3498DB]">{fmtFlux(hard)}</div>
