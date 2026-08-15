@@ -548,3 +548,303 @@ function IngestStepVisual() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.5">
             <path d="M4 12a8 8 0 0 1 16 0" />
             <path d="M12 12v8" />
+            <path d="M8 20h8" />
+            <line x1="12" y1="8" x2="12" y2="4" />
+            <circle cx="12" cy="3" r="1" fill="#FFF" />
+          </svg>
+          <span className="text-[6px] font-mono text-gray-500 mt-1">GROUND_STN</span>
+        </div>
+      </div>
+      
+      {/* Console log display */}
+      <div className="h-10 bg-black/60 rounded border border-white/5 p-1 font-mono text-[7px] text-gray-400 overflow-hidden leading-tight flex flex-col justify-end">
+        {logTicks.map((tick, i) => (
+          <div key={i} className="whitespace-nowrap truncate opacity-80">&gt; {tick}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Workflow Step 2: Feature Extraction Visual ────────────────
+function FeatureStepVisual() {
+  const [val, setVal] = useState({ hr: 0.04, pf: 1.2, rr: 0.45, dur: 45 });
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVal({
+        hr: +(0.03 + Math.random() * 0.03).toFixed(3),
+        pf: +(0.8 + Math.random() * 0.9).toFixed(2),
+        rr: +(0.3 + Math.random() * 0.3).toFixed(2),
+        dur: Math.floor(30 + Math.random() * 30),
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="relative w-full h-full flex flex-col justify-between p-2 font-mono text-[7px] text-gray-400 select-none">
+      <div className="flex-1 grid grid-cols-2 gap-2 items-center">
+        {/* Left: Input wave passing into processing box */}
+        <div className="relative h-full flex flex-col justify-center border-r border-white/5 pr-1.5">
+          <span className="text-[6px] text-gray-500 mb-1">RAW_STREAM</span>
+          <svg width="100%" height="28" viewBox="0 0 80 30" className="opacity-70">
+            <path d="M0,15 Q10,2 20,15 T40,15 T60,5 T80,15" fill="none" stroke="#FFF" strokeWidth="1" />
+            {/* moving scanner line */}
+            <line x1="0" y1="0" x2="0" y2="30" stroke="rgba(255,255,255,0.4)" strokeWidth="1">
+              <animate attributeName="x1" values="0;80;0" dur="3s" repeatCount="indefinite" />
+              <animate attributeName="x2" values="0;80;0" dur="3s" repeatCount="indefinite" />
+            </line>
+          </svg>
+        </div>
+
+        {/* Right: Extracted Feature values */}
+        <div className="flex flex-col gap-0.5 pl-0.5">
+          <span className="text-[6px] text-gray-500 mb-0.5">VECTORS</span>
+          
+          <div className="flex justify-between items-center text-[6px]">
+            <span>HRATIO</span>
+            <span className="text-white font-semibold">{val.hr}</span>
+          </div>
+          <div className="w-full bg-white/5 h-0.5 rounded overflow-hidden">
+            <div className="bg-white h-full transition-all duration-500" style={{ width: `${(val.hr / 0.1) * 100}%` }} />
+          </div>
+
+          <div className="flex justify-between items-center text-[6px] mt-0.5">
+            <span>PFLUX</span>
+            <span className="text-white font-semibold">{val.pf}e-5</span>
+          </div>
+          <div className="w-full bg-white/5 h-0.5 rounded overflow-hidden">
+            <div className="bg-white h-full transition-all duration-500" style={{ width: `${(val.pf / 2.0) * 100}%` }} />
+          </div>
+
+          <div className="flex justify-between items-center text-[6px] mt-0.5">
+            <span>RRATE</span>
+            <span className="text-white font-semibold">{val.rr}/m</span>
+          </div>
+          <div className="w-full bg-white/5 h-0.5 rounded overflow-hidden">
+            <div className="bg-white h-full transition-all duration-500" style={{ width: `${(val.rr / 1.0) * 100}%` }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Workflow Step 3: AI Classification Visual ─────────────────
+function ClassifierStepVisual() {
+  const [probs, setProbs] = useState({ c: 85, m: 12, x: 1 });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const c = Math.floor(60 + Math.random() * 35);
+      const m = Math.floor(Math.random() * (100 - c - 5));
+      const x = 100 - c - m;
+      setProbs({ c, m, x });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="relative w-full h-full flex items-center justify-between p-2 font-mono text-[7px] text-gray-400 select-none">
+      {/* Left: Interactive network grid */}
+      <div className="w-20 h-full relative">
+        <svg width="100%" height="100%" viewBox="0 0 100 100">
+          {/* Node Connections */}
+          <line x1="15" y1="20" x2="50" y2="35" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          <line x1="15" y1="20" x2="50" y2="65" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          
+          <line x1="15" y1="50" x2="50" y2="35" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          <line x1="15" y1="50" x2="50" y2="65" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          
+          <line x1="15" y1="80" x2="50" y2="35" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          <line x1="15" y1="80" x2="50" y2="65" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+
+          <line x1="50" y1="35" x2="85" y2="20" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          <line x1="50" y1="35" x2="85" y2="50" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          <line x1="50" y1="35" x2="85" y2="80" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+
+          <line x1="50" y1="65" x2="85" y2="20" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          <line x1="50" y1="65" x2="85" y2="50" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+          <line x1="50" y1="65" x2="85" y2="80" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+
+          {/* Active signal pulses along lines */}
+          <circle cx="15" cy="50" r="1.5" fill="#FFF">
+            <animate attributeName="cx" values="15;50;85" dur="1.8s" repeatCount="indefinite" />
+            <animate attributeName="cy" values="50;35;20" dur="1.8s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="15" cy="80" r="1.5" fill="#FFF">
+            <animate attributeName="cx" values="15;50;85" dur="1.8s" repeatCount="indefinite" begin="0.6s" />
+            <animate attributeName="cy" values="80;65;50" dur="1.8s" repeatCount="indefinite" begin="0.6s" />
+          </circle>
+
+          {/* Layer 1 Nodes */}
+          <circle cx="15" cy="20" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+          <circle cx="15" cy="50" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+          <circle cx="15" cy="80" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+
+          {/* Layer 2 Nodes */}
+          <circle cx="50" cy="35" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+          <circle cx="50" cy="65" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+
+          {/* Layer 3 Nodes */}
+          <circle cx="85" cy="20" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+          <circle cx="85" cy="50" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+          <circle cx="85" cy="80" r="2.5" fill="#000" stroke="#FFF" strokeWidth="1" />
+        </svg>
+      </div>
+
+      {/* Right: Network Classifier Outputs */}
+      <div className="flex-1 flex flex-col gap-1 pl-2">
+        <span className="text-[5.5px] text-gray-500 mb-0.5">AI_PROBS</span>
+        
+        <div>
+          <div className="flex justify-between text-[6px]">
+            <span>C-CLASS</span>
+            <span className="text-white">{probs.c}%</span>
+          </div>
+          <div className="w-full bg-white/5 h-0.5 rounded overflow-hidden mt-0.5">
+            <div className="bg-white h-full transition-all duration-500" style={{ width: `${probs.c}%` }} />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between text-[6px] mt-0.5">
+            <span>M-CLASS</span>
+            <span className="text-white">{probs.m}%</span>
+          </div>
+          <div className="w-full bg-white/5 h-0.5 rounded overflow-hidden mt-0.5">
+            <div className="bg-white h-full transition-all duration-500" style={{ width: `${probs.m}%` }} />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between text-[6px] mt-0.5">
+            <span>X-CLASS</span>
+            <span className="text-white">{probs.x}%</span>
+          </div>
+          <div className="w-full bg-white/5 h-0.5 rounded overflow-hidden mt-0.5">
+            <div className="bg-white h-full transition-all duration-500" style={{ width: `${probs.x}%` }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Workflow Step 4: Dashboard Alert Visual ───────────────────
+function AlertStepVisual() {
+  const [alert, setAlert] = useState(false);
+  const history = [
+    { time: '11:45:00', type: 'C2.4', status: 'RESOLVED' },
+    { time: '12:02:15', type: 'M1.1', status: 'ACTIVE' }
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAlert(prev => !prev);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="relative w-full h-full flex flex-col justify-between p-2 font-mono text-[7px] select-none">
+      <div className="flex items-center justify-between border-b border-white/5 pb-1 mb-0.5">
+        <div className="flex items-center gap-1">
+          <span className={`w-1.5 h-1.5 rounded-full ${alert ? 'bg-white' : 'bg-white/20'} animate-ping`} />
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={alert ? '#FFF' : 'rgba(255,255,255,0.4)'} strokeWidth="2" className={alert ? 'animate-bounce' : ''}>
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          <span className={alert ? 'text-white font-semibold' : 'text-gray-500'}>
+            {alert ? 'ALERT_TRG' : 'SYS_NOMINAL'}
+          </span>
+        </div>
+        <span className="text-[5.5px] text-gray-500">REALTIME</span>
+      </div>
+
+      {/* Mini alert logs */}
+      <div className="flex-1 flex flex-col gap-0.5 justify-center">
+        {history.map((h, i) => (
+          <div key={i} className="flex justify-between items-center text-gray-400 bg-white/5 rounded px-1 py-0.5 border border-white/5 text-[6px]">
+            <span className="text-gray-500">{h.time}</span>
+            <span className="text-white font-medium">{h.type}</span>
+            <span className={`text-[5px] px-0.5 rounded leading-none ${h.status === 'ACTIVE' && alert ? 'bg-white text-black font-bold' : 'border border-white/20 text-gray-400'}`}>
+              {h.status}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Landing ───────────────────────────────────────────────
+export default function Landing({ onEnter }) {
+  const [visible, setVisible] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const enteredRef = useRef(false);
+
+  useEffect(() => {
+    document.body.style.overflow = 'auto';
+    const t = setTimeout(() => setVisible(true), 80);
+    return () => {
+      clearTimeout(t);
+      document.body.style.overflow = 'hidden';
+    };
+  }, []);
+
+  const handleEnter = () => {
+    if (enteredRef.current) return;
+    enteredRef.current = true;
+    setEntering(true);
+    setTimeout(() => onEnter(), 500);
+  };
+
+  return (
+    <div className="landing-root">
+
+      {/* ── Video Background Hero Section ── */}
+      <div className="relative h-screen w-full overflow-hidden flex flex-col bg-black text-white">
+        {/* Video Background */}
+        <video
+          className="absolute inset-0 w-full h-full object-cover z-0"
+          src="https://svs.gsfc.nasa.gov/vis/a010000/a014100/a014126/New_Trebuchet_mkII.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+
+        {/* Navbar */}
+        <nav className="relative z-10 w-full px-6 md:px-12 lg:px-16 pt-6">
+          <div className="liquid-glass rounded-xl px-4 py-2 flex items-center justify-between">
+            <div className="text-xl md:text-2xl font-bold tracking-tight text-white select-none flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+              SOLAR FLARE FORECASTING
+            </div>
+            <div className="hidden md:flex items-center gap-8 text-sm font-mono text-gray-300">
+              <a href="#features" className="hover:text-white transition-colors duration-200">Nowcast & Forecast</a>
+              <a href="#how-it-works" className="hover:text-white transition-colors duration-200">Pipeline</a>
+              <a href="#demo" className="hover:text-white transition-colors duration-200">Live Preview</a>
+              <a href="#stack" className="hover:text-white transition-colors duration-200">Instruments</a>
+            </div>
+            <button 
+              className="bg-white text-black px-6 py-2 rounded-lg text-sm font-semibold hover:bg-orange-400 hover:text-white transition-all duration-200"
+              onClick={handleEnter}
+            >
+              Launch Dashboard
+            </button>
+          </div>
+        </nav>
+
+        {/* Hero Content (Bottom of viewport) */}
+        <div className="relative z-10 flex-1 flex flex-col justify-end px-6 md:px-12 lg:px-16 pb-12 lg:pb-16">
+          <div className="w-full lg:grid lg:grid-cols-2 lg:items-end gap-12">
+            {/* Left Column: Main content */}
+            <div>
+              <AnimatedHeading text={"SOLAR FLARE FORECASTING\nUsing Aditya-L1 X-Ray Data"} />
+              
+              <FadeIn delay={800} duration={1000}>
+                <p className="text-base md:text-lg text-orange-200/90 mb-5 font-medium leading-relaxed font-mono">
+                  Short-Term Solar Flare Forecasting and Nowcasting using Soft and Hard X-Ray Data (SoLEXS + HEL1OS).
