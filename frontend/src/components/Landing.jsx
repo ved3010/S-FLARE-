@@ -848,3 +848,203 @@ export default function Landing({ onEnter }) {
               <FadeIn delay={800} duration={1000}>
                 <p className="text-base md:text-lg text-orange-200/90 mb-5 font-medium leading-relaxed font-mono">
                   Short-Term Solar Flare Forecasting and Nowcasting using Soft and Hard X-Ray Data (SoLEXS + HEL1OS).
+                </p>
+              </FadeIn>
+
+              <FadeIn delay={1200} duration={1000}>
+                <div className="flex flex-wrap gap-4">
+                  <button 
+                    className="bg-white text-black px-8 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors duration-200"
+                    onClick={handleEnter}
+                  >
+                    Launch Dashboard
+                  </button>
+                  <button 
+                    className="liquid-glass border border-white/20 text-white px-8 py-3 rounded-lg font-medium hover:bg-white hover:text-black transition-colors duration-300"
+                    onClick={() => {
+                      document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    Explore Now
+                  </button>
+                </div>
+              </FadeIn>
+            </div>
+
+            {/* Right Column: Tag glass card */}
+            <div className="flex items-end justify-start lg:justify-end mt-8 lg:mt-0">
+              <FadeIn delay={1400} duration={1000}>
+                <div className="liquid-glass border border-white/20 px-6 py-3 rounded-xl font-mono text-sm md:text-base text-orange-300">
+                  <span>
+                    Aditya-L1 SoLEXS + HEL1OS · Nowcast · +1m / +2m Forecast
+                  </span>
+                </div>
+              </FadeIn>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FEATURES ── */}
+      <section className="landing-section" id="features">
+        <Reveal>
+          <div className="section-header">
+            <span className="section-tag">01</span>
+            <h2 className="section-title">Capabilities</h2>
+            <p className="section-desc">
+              Four core modules working together to detect, classify, and forecast solar flares
+              from Aditya-L1 satellite telemetry in real time.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="features-grid">
+          {[
+            {
+              tag: '01',
+              title: 'Nowcast Engine',
+              desc: 'CNN-based real-time flare classification. Processes soft and hard X-ray channels with adaptive thresholding to detect events as they happen.',
+              detail: 'Accuracy: 96.8%',
+              visual: <NowcastVisual />
+            },
+            {
+              tag: '02',
+              title: 'TCN Forecasting',
+              desc: 'Temporal convolutional network predicting 3-hour flare probability. Uses historical flux patterns to estimate future event likelihood.',
+              detail: 'Window: 3 hours',
+              visual: <ForecastVisual />
+            },
+            {
+              tag: '03',
+              title: 'L1 Data Pipeline',
+              desc: 'Direct ingestion from SoLEXS and HEL1OS instruments aboard Aditya-L1. Real-time telemetry processing at the Sun-Earth Lagrange point.',
+              detail: 'Distance: 1.5M km',
+              visual: <PipelineVisual />
+            },
+            {
+              tag: '04',
+              title: 'Spectral Hardness',
+              desc: 'Real-time hardness ratio monitoring for pre-flare signature detection. Tracks spectral evolution across energy bands.',
+              detail: 'Bands: 2 channels',
+              visual: <HardnessVisual />
+            },
+          ].map((f, i) => (
+            <Reveal key={i} delay={i * 100}>
+              <TiltCard className="feature-card-3d" glare>
+                <div className="feature-card-inner">
+                  <span className="feature-tag">{f.tag}</span>
+                  {f.visual}
+                  <h3 className="feature-title">{f.title}</h3>
+                  <p className="feature-desc">{f.desc}</p>
+                  <span className="feature-detail">{f.detail}</span>
+                </div>
+              </TiltCard>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ── HOW IT WORKS ── */}
+      <section className="landing-section" id="how-it-works">
+        <Reveal>
+          <div className="section-header">
+            <span className="section-tag">02</span>
+            <h2 className="section-title">How It Works</h2>
+            <p className="section-desc">
+              From satellite telemetry to actionable forecast — a four-step pipeline.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="workflow">
+          {[
+            {
+              step: '01',
+              title: 'Data Ingestion',
+              desc: 'SoLEXS and HEL1OS instruments transmit raw X-ray flux data from the L1 point back to ground stations.',
+              icon: (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 20l3-3" /><path d="M4 18l5-5" /><circle cx="18" cy="6" r="3" />
+                  <path d="M14 10l4-4" /><path d="M11 13l3-3 3 3-3 3-3-3z" />
+                </svg>
+              ),
+              visual: <IngestStepVisual />
+            },
+            {
+              step: '02',
+              title: 'Feature Extraction',
+              desc: 'Raw flux is processed into spectral hardness ratios, peak flux, duration, and rise-rate features for model input.',
+              icon: (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                </svg>
+              ),
+              visual: <FeatureStepVisual />
+            },
+            {
+              step: '03',
+              title: 'AI Classification',
+              desc: 'CNN classifies current flare state. TCN generates 3-hour forward forecast with confidence intervals.',
+              icon: (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                  <path d="M9 9h6v6H9z" /><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3" />
+                </svg>
+              ),
+              visual: <ClassifierStepVisual />
+            },
+            {
+              step: '04',
+              title: 'Dashboard Alert',
+              desc: 'Results appear in real-time dashboard. Alerts triggered for M-class and X-class events with severity ranking.',
+              icon: (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              ),
+              visual: <AlertStepVisual />
+            },
+          ].map((w, i) => (
+            <div key={i} className="workflow-step-wrapper">
+              <Reveal delay={i * 150}>
+                <div className="workflow-step">
+                  <div className="workflow-step-icon">{w.icon}</div>
+                  <div className="workflow-step-content">
+                    <span className="workflow-step-num">Step {w.step}</span>
+                    <h3 className="workflow-step-title">{w.title}</h3>
+                    <p className="workflow-step-desc">{w.desc}</p>
+                  </div>
+                  <div className="workflow-step-visual">
+                    {w.visual}
+                  </div>
+                </div>
+              </Reveal>
+              {i < 3 && <AnimatedLine />}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── LIVE DEMO PREVIEW ── */}
+      <section className="landing-section" id="demo">
+        <Reveal>
+          <div className="section-header">
+            <span className="section-tag">03</span>
+            <h2 className="section-title">See It In Action</h2>
+            <p className="section-desc">
+              A live preview of the dashboard. Real-time X-ray flux monitoring
+              with AI-powered flare classification and forecasting.
+            </p>
+          </div>
+        </Reveal>
+
+        <Reveal delay={200}>
+          <div className="demo-wrapper">
+            <DemoPreview />
+          </div>
+        </Reveal>
+
+        <Reveal delay={300}>
+          <div className="demo-steps">
+            <div className="demo-step">
