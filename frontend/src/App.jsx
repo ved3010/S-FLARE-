@@ -53,3 +53,43 @@ export default function App() {
     if (!showLanding) {
       setHash(view);
     }
+  }, [view, showLanding]);
+
+  // Listen for popstate (browser back/forward) to sync view
+  useEffect(() => {
+    const onHashChange = () => {
+      const v = getViewFromHash();
+      if (v && v !== activeTab) {
+        setActiveTab(v);
+        setView(v);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [activeTab]);
+
+  const handleView = useCallback((v) => {
+    if (v === activeTab) return;
+    setActiveTab(v);
+    setHash(v);  // update URL hash immediately
+    setTransitioning(true);
+    setTimeout(() => {
+      setView(v);
+      setTimeout(() => setTransitioning(false), 50);
+    }, 180);
+  }, [activeTab]);
+
+  const handleEnter = useCallback(() => {
+    setShowLanding(false);
+    setHash(view);
+  }, [view]);
+
+  if (showLanding) {
+    return <Landing onEnter={handleEnter} />;
+  }
+
+  const mainContent = (
+    <div className="flex-1 overflow-auto" style={{ padding: 'clamp(12px, 2vw, 24px)' }}>
+      {view === 'dashboard' && <Dashboard onNavigate={handleView} />}
+      {view === 'impact' && <ImpactPanel />}
+      {view === 'replay' && <Replay event={replayEvent} />}
