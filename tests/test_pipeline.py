@@ -83,3 +83,18 @@ class TestSolarFlarePipeline(unittest.TestCase):
         history = [
             {'timestamp': 1_000_000 + i * 10_000, 'softFlux': 1e-7 * (1 + i / 100)}
             for i in range(40)
+        ]
+        one = forecast_from_history(history, 1)
+        two = forecast_from_history(history, 2)
+        self.assertEqual(one['horizon_minutes'], 1)
+        self.assertEqual(two['horizon_minutes'], 2)
+        self.assertEqual(
+            two['target_time'],
+            '1970-01-01T00:25:10Z'
+        )
+
+
+    def test_model_manager(self):
+        mm = ModelManager()
+        comparison = mm.get_comparison()
+        self.assertGreater(len(comparison), 0)
