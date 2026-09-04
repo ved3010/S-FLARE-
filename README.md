@@ -98,3 +98,18 @@ The repository includes support for multiple Machine Learning & Deep Learning mo
 pip install -r requirements.txt
 
 # 3. Launch FastAPI server
+python -m uvicorn api.main:app --reload --port 8000
+```
+
+### Frontend
+```powershell
+# 1. Navigate to frontend directory
+cd frontend
+
+# 2. Install npm packages
+npm install
+
+# 3. Launch Vite development server
+npm run dev
+```
+
