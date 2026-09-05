@@ -113,3 +113,13 @@ npm install
 npm run dev
 ```
 
+Open `http://localhost:5173` in your browser.
+
+---
+
+## 8. Automated Test Suite
+
+Run the unit test suite to verify pipeline functionality:
+```powershell
+python -m unittest tests/test_pipeline.py
+python -m unittest tests/test_short_term_horizons.py
