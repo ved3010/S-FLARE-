@@ -1,0 +1,35 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache & build
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+build/
+*.egg-info/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.eslintcache
+
+# Logs
+*.log
+api-server.err.log
+api-server.out.log
+frontend-server.err.log
+frontend-server.out.log
+
+# System / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
