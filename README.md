@@ -123,3 +123,8 @@ Run the unit test suite to verify pipeline functionality:
 ```powershell
 python -m unittest tests/test_pipeline.py
 python -m unittest tests/test_short_term_horizons.py
+```
+
+The test suite validates data alignment, 9-feature calculation, timestamp-based target horizons, missing target handling, and short-term forecast generation.
+
+---
