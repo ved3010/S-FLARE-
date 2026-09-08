@@ -678,3 +678,71 @@ def align_telemetry_json(solexs_list, helios_list):
         s_rec = solexs_map.get(t)
 
         if h_rec:
+            last_hard_15_25 = h_rec['hard_15_25']
+            last_hard_25_50 = h_rec['hard_25_50']
+            last_hard_50_100 = h_rec['hard_50_100']
+            helios_ok = True
+        else:
+            helios_ok = False
+
+        if s_rec:
+            last_soft_flux = s_rec['soft_flux']
+            last_soft_seen_time = t
+            solexs_ok = True
+        else:
+            solexs_ok = (t - last_soft_seen_time <= 70)
+
+        gap = not (helios_ok and solexs_ok)
+
+        aligned.append({
+            'time': t,
+            'soft_flux': last_soft_flux,
+            'hard_15_25': last_hard_15_25,
+            'hard_25_50': last_hard_25_50,
+            'hard_50_100': last_hard_50_100,
+            'data_gap': gap
+        })
+    return aligned
+
+
+def load_and_align(solexs_path, helios_path):
+    """Legacy: load mock JSON data."""
+    if not os.path.exists(solexs_path) and os.path.exists(solexs_path.replace(".fits", ".json")):
+        solexs_path = solexs_path.replace(".fits", ".json")
+    if not os.path.exists(helios_path) and os.path.exists(helios_path.replace(".fits", ".json")):
+        helios_path = helios_path.replace(".fits", ".json")
+
+    print("Using legacy JSON ingestion path...")
+    s_list = load_solexs_json(solexs_path)
+    h_list = load_helios_json(helios_path)
+    return align_telemetry_json(s_list, h_list)
+
+
+def generate_live_stream_point(t_sec, flare_active=False):
+    """Generate simulated data point (for offline/fallback mode)."""
+    import random
+    bg_soft = 5e-8
+    bg_hard = 3.0
+
+    if flare_active:
+        dt = (t_sec % 1200) - 600
+        impulse = 600.0 * math.exp(-((dt + 100) / 90.0) ** 2) if dt < 100 else 10.0
+        cooling = 3.0 * math.exp(-(dt - 100) / 250.0) if dt >= 100 else 0.0
+
+        hard_val = bg_hard + impulse + random.gauss(0, 1.0)
+        soft_val = bg_soft + (impulse * 3.5e-8) + (cooling * 2e-6) + random.gauss(0, 1e-9)
+    else:
+        hard_val = bg_hard + random.gauss(0, 0.4)
+        soft_val = bg_soft + random.gauss(0, 1e-9)
+
+    hard_val = max(0.1, hard_val)
+    soft_val = max(1e-9, soft_val)
+
+    return {
+        'time': int(t_sec),
+        'soft_flux': soft_val,
+        'hard_15_25': hard_val * 2.2,
+        'hard_25_50': hard_val,
+        'hard_50_100': hard_val * 0.12,
+        'data_gap': False
+    }
