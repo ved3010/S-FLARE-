@@ -1,0 +1,18 @@
+{
+  "podM": 1.0,
+  "farM": 0.6944444444444444,
+  "csiM": 0.3055555555555556,
+  "podX": 1.0,
+  "farX": 0.6044444444444445,
+  "csiX": 0.3855555555555556,
+  "meanLeadTime": 8,
+  "confusion": {
+    "tp": 66,
+    "fn": 3,
+    "fp": 150,
+    "tn": 438
+  },
+  "skillScore": 0.73,
+  "totalEvents": 50,
+  "testPeriod": "Sep 2026 (Aditya-L1)"
+}
