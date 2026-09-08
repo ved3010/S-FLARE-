@@ -1,0 +1,56 @@
+# Python
+venv/
+.venv/
+.venv_win/
+*.whl
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+
+# Node / JS
+node_modules/
+dist/
+.vite/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment / Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+certs/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Data / Temporary Logs
+data/logs/
+data/processed/backtest_results.json
+*.log
+
+# Markdown files
+*.md
+!README.md
+**/*.md
+!**/README.md
