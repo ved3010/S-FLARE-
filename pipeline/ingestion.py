@@ -259,3 +259,265 @@ def find_solexs_files(date_str=None):
     else:
         dates = sorted([d for d in os.listdir(base) if d.isdigit() and os.path.isdir(os.path.join(base, d))])
         if not dates:
+            return None, None, None
+        date_str = dates[-1]
+        date_dir = os.path.join(base, date_str)
+
+    # Find SLX session directory inside date_dir
+    session_dir = None
+    for d in os.listdir(date_dir):
+        full = os.path.join(date_dir, d)
+        if os.path.isdir(full) and 'SLX' in d:
+            session_dir = full
+            break
+
+    if not session_dir:
+        return None, None, None
+
+    # Try finding SDD1 and SDD2 light curves independently (either may be missing)
+    sdd1_path = None
+    sdd2_path = None
+    for ext in ['', '.fits']:
+        s1 = os.path.join(session_dir, 'SDD1', f'AL1_SOLEXS_{date_str}_SDD1_L1.lc{ext}')
+        s2 = os.path.join(session_dir, 'SDD2', f'AL1_SOLEXS_{date_str}_SDD2_L1.lc{ext}')
+        if not sdd1_path and os.path.exists(s1):
+            sdd1_path = s1
+        if not sdd2_path and os.path.exists(s2):
+            sdd2_path = s2
+
+    if sdd1_path or sdd2_path:
+        return date_str, sdd1_path, sdd2_path
+
+    return None, None, None
+
+
+def load_solexs_lc(filepath):
+    """Load SoLEXS light curve FITS and return list of {time, counts}."""
+    if filepath.endswith('.gz'):
+        f = gzip.open(filepath, 'rb')
+    else:
+        f = open(filepath, 'rb')
+
+    try:
+        # Skip primary HDU (HDU 0)
+        h0, _ = read_fits_header_data(f)
+        # Read table HDU (HDU 1)
+        h1, raw = read_fits_header_data(f)
+        records = parse_fits_table(h1, raw)
+    finally:
+        f.close()
+
+    # Real SoLEXS LC has columns: TIME (MJD or s), COUNTS (cts)
+    # Map to our schema
+    # Debug: show actual column names present
+    if records:
+        col_names = list(records[0].keys())
+        print(f"    SoLEXS LC columns: {col_names}")
+        if records[0]:
+            print(f"    First rec: {[(k, v) for k, v in list(records[0].items())[:2]]}")
+
+    result = []
+    for r in records:
+        # TIME could be MJD or seconds; try common column names
+        time_val = r.get('TIME', r.get('MJD', r.get('TSTART', r.get('time', 0))))
+        counts = r.get('COUNTS', r.get('CTR', r.get('RATE', 0)))
+
+        # Skip rows with NaN or unreasonable values
+        if isinstance(time_val, (int, float)) and (time_val != time_val or abs(time_val) > 1e12):
+            continue
+        if isinstance(counts, float) and (counts != counts or counts < 0):
+            counts = 0.0
+        if isinstance(counts, int):
+            counts = float(counts)
+
+        # Convert MJD to Unix timestamp if needed
+        if time_val > 50000 and time_val < 200000:  # Likely MJD (not seconds)
+            # MJD -> Unix: (MJD - 40587) * 86400
+            # 40587 = 2440587.5 - 2400000.5 (offset between MJD and Unix)
+            unix_time = (time_val - 40587.0) * 86400.0
+        elif time_val > 1000000000 and time_val < 2000000000:
+            # Already in Unix seconds
+            unix_time = time_val
+        elif time_val > 50000:
+            # Could still be MJD
+            unix_time = (time_val - 40587.0) * 86400.0
+        else:
+            unix_time = time_val
+
+        # Sanity check: reasonable unix timestamps for 2024-2026
+        if unix_time < 1.7e9 or unix_time > 1.8e9:
+            continue
+
+        result.append({
+            'time': int(unix_time),
+            'counts': float(counts)
+        })
+
+    return result
+
+
+def process_solexs_to_flux(records_sdd1, records_sdd2):
+    """Combine SDD1 and SDD2 SoLEXS light curves into unified flux."""
+    from collections import defaultdict
+
+    combined = defaultdict(float)
+    for r in records_sdd1 + records_sdd2:
+        combined[r['time']] += r['counts']
+
+    # Convert counts to physical flux (soft X-ray)
+    # SoLEXS counts -> flux using calibration factor
+    # ~1 count/sec ≈ 1.5e-8 W/m² (calibration from SoLEXS specs)
+    flux_list = []
+    for t in sorted(combined.keys()):
+        counts = combined[t]
+        flux_list.append({
+            'time': t,
+            'soft_flux': counts * 1.5e-8,
+            'counts': counts
+        })
+
+    return flux_list
+
+
+# ==========================================
+# Aditya-L1 HEL1OS Ingestion
+# ==========================================
+
+def find_helios_files(date_str=None):
+    """Find extracted HEL1OS FITS files."""
+    base = os.path.join('data', 'raw', 'helios')
+
+    if date_str:
+        date_dir = os.path.join(base, date_str)
+        if not os.path.exists(date_dir):
+            return None, None
+    else:
+        dates = sorted([d for d in os.listdir(base) if d.isdigit() and os.path.isdir(os.path.join(base, d))])
+        if not dates:
+            return None, None
+        date_str = dates[-1]
+        date_dir = os.path.join(base, date_str)
+
+    # Find the HEL1OS session directory (nested: YYYY/MM/DD/HLS_...)
+    for root, dirs, files in os.walk(date_dir):
+        for d in dirs:
+            if d.startswith('HLS_'):
+                return date_str, os.path.join(root, d)
+        # Limit depth for performance
+        if root.count(os.sep) - date_dir.count(os.sep) > 4:
+            break
+
+    return None, None
+
+
+def load_helios_lightcurve(filepath):
+    """Load HEL1OS light curve FITS (CZT or CdTe) and return list of records."""
+    if not os.path.exists(filepath):
+        return []
+
+    f = open(filepath, 'rb')
+    try:
+        h0, _ = read_fits_header_data(f)
+        h1, raw = read_fits_header_data(f)
+        records = parse_fits_table(h1, raw)
+    finally:
+        f.close()
+
+    if records:
+        print(f"    HEL1OS LC columns: {list(records[0].keys())}")
+
+    result = []
+    for r in records:
+        # HEL1OS LC columns: MJD (D), ISOT (30A), CTR (cts/sec), STAT_ERR (D)
+        mjd = r.get('MJD', r.get('TIME', r.get('TSTART', 0)))
+        ctr = r.get('CTR', r.get('COUNTS', r.get('RATE', 0)))
+        stat_err = r.get('STAT_ERR', 0)
+
+        # Skip bad rows
+        if isinstance(mjd, (int, float)) and (mjd != mjd or abs(mjd) > 1e12):
+            continue
+        if isinstance(ctr, float) and (ctr != ctr or ctr < 0):
+            ctr = 0.0
+
+        if mjd > 50000 and mjd < 200000:
+            unix_time = (mjd - 40587.0) * 86400.0
+        elif mjd > 1000000000 and mjd < 2000000000:
+            unix_time = mjd
+        elif mjd > 50000:
+            unix_time = (mjd - 40587.0) * 86400.0
+        else:
+            unix_time = mjd
+
+        if unix_time < 1.7e9 or unix_time > 1.85e9:
+            continue
+
+        result.append({
+            'time': int(unix_time),
+            'ctr': float(ctr),
+            'stat_err': float(stat_err)
+        })
+
+    return result
+
+
+def process_helios(session_dir):
+    """Load HEL1OS data from all 4 detectors and merge into unified hard X-ray channels."""
+    detectors = {
+        'cdte1': os.path.join(session_dir, 'cdte', 'lightcurve_cdte1.fits'),
+        'cdte2': os.path.join(session_dir, 'cdte', 'lightcurve_cdte2.fits'),
+        'czt1':  os.path.join(session_dir, 'czt',  'lightcurve_czt1.fits'),
+        'czt2':  os.path.join(session_dir, 'czt',  'lightcurve_czt2.fits'),
+    }
+
+    # Load all detector light curves
+    lc_data = {}
+    for name, path in detectors.items():
+        lc_data[name] = load_helios_lightcurve(path)
+
+    # Merge by timestamp, summing CTR for CdTe (lower energy) and CZT (higher energy)
+    from collections import defaultdict
+    merged = defaultdict(lambda: {'cdte_ctr': 0.0, 'czt_ctr': 0.0})
+
+    for name, records in lc_data.items():
+        for r in records:
+            t = r['time']
+            if 'cdte' in name:
+                merged[t]['cdte_ctr'] += r['ctr']
+            else:
+                merged[t]['czt_ctr'] += r['ctr']
+
+    # Map to pipeline schema:
+    # CdTe (~5-30 keV) -> proxy for 15-25 keV
+    # CZT (~20-150 keV) -> proxy for 25-50 and 50-100 keV
+    # TODO: calibrate these scaling factors using HEL1OS response matrices
+    # from the PRADAN data release for accurate energy-band mapping
+    result = []
+    for t in sorted(merged.keys()):
+        cdte = max(0.1, merged[t]['cdte_ctr'])
+        czt = max(0.1, merged[t]['czt_ctr'])
+
+        # CdTe count rate scales to hardness proxy
+        # CZT count rate splits into two hard channels
+        hard_main = czt * 0.15 + cdte * 0.02  # Rough scaling to match NOAA-like units
+
+        result.append({
+            'time': t,
+            'hard_15_25': cdte * 0.8,      # CdTe proxy for lower hard band
+            'hard_25_50': hard_main,         # Combined mid band
+            'hard_50_100': czt * 0.03,       # CZT proxy for upper hard band
+        })
+
+    return result
+
+
+# ==========================================
+# Main Data Loading Functions
+# ==========================================
+
+def load_aditya_data(date_str=None, sample_every=1):
+    """Main entry point: load real Aditya-L1 data for a given date or latest.
+    
+    Args:
+        date_str: YYYYMMDD date or None for latest
+        sample_every: Load every Nth record (higher = faster for API init)
+    """
