@@ -208,3 +208,32 @@ class AlertAggregator:
         
         forecast_out = {
             'probability': prob_1min_pct,
+            'updatedAt': timestamp_utc,
+            'windowStart': timestamp_utc,
+            'windowEnd': t_2min_str,
+            'nextClass': 'M-class' if prob_1min_pct > 50 else 'C-class',
+            'leadTime': 2 if hr_pre else 1,
+            'tcnConfidence': forecast_prob,
+            'forecast1Min': forecast_1min_out,
+            'forecast2Min': forecast_2min_out
+        }
+        
+        hardness_ratio_out = {
+            'current': hr_val,
+            'baseline': 0.035,
+            'threshold': 0.06,
+            'trend': 'rising' if hr_slope > 0 else 'falling',
+            'preFlareSignal': hr_pre,
+            'minutesEarly': 2 if hr_pre else 0
+        }
+        
+        return {
+            'systemStatus': system_status,
+            'nowcast': nowcast_out,
+            'forecast': forecast_out,
+            'forecast1Min': forecast_1min_out,
+            'forecast2Min': forecast_2min_out,
+            'hardnessRatio': hardness_ratio_out,
+            'alerts': self.alerts,
+            'flareClass': f_class
+        }
