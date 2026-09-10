@@ -178,3 +178,15 @@ def compute_latest_features_pure(history_buffer):
                 
     time_since_c = 120.0
     if last_c_flare_t > 0:
+        time_since_c = (t_curr - last_c_flare_t) / 60.0
+        
+    # Recent activity index: flares in last 6h (21600s)
+    six_hours_ago = t_curr - 21600
+    recent_count = sum(1 for ft in flare_onsets if ft >= six_hours_ago)
+    solar_activity_index = float(recent_count)
+    
+    return [
+        soft_log10, hard_rate, hr_curr,
+        hr_slope, hr_zscore, flux_derivative,
+        neupert_residual, time_since_c, solar_activity_index
+    ]
