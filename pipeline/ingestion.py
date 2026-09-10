@@ -521,3 +521,228 @@ def load_aditya_data(date_str=None, sample_every=1):
         date_str: YYYYMMDD date or None for latest
         sample_every: Load every Nth record (higher = faster for API init)
     """
+    print(f"Loading real Aditya-L1 data (date: {date_str or 'latest'}, sample_every={sample_every})...")
+
+    # 1. Load SoLEXS
+    found_date, sdd1_path, sdd2_path = find_solexs_files(date_str)
+    if not found_date:
+        print("  No SoLEXS data found.")
+        return None
+
+    print(f"  Found SoLEXS data: {found_date}")
+    sdd1 = load_solexs_lc(sdd1_path) if sdd1_path and os.path.exists(sdd1_path) else []
+    sdd2 = load_solexs_lc(sdd2_path) if sdd2_path and os.path.exists(sdd2_path) else []
+
+    if not sdd1 and not sdd2:
+        print("  SoLEXS data is empty.")
+        return None
+
+    soft_flux_data = process_solexs_to_flux(sdd1, sdd2)
+    
+    # Apply sampling if requested
+    if sample_every > 1 and soft_flux_data:
+        soft_flux_data = soft_flux_data[::sample_every]
+        
+    print(f"  SoLEXS: {len(soft_flux_data)} points (SDD1: {len(sdd1)}, SDD2: {len(sdd2)})")
+
+    # 2. Load HEL1OS (same date)
+    helios_date, session_dir = find_helios_files(found_date)
+    if not helios_date:
+        print("  No HEL1OS data found for this date. SoLEXS-only mode.")
+        hard_data = []
+    else:
+        hard_data = process_helios(session_dir)
+        # Also sample HEL1OS to match
+        if sample_every > 1 and hard_data:
+            hard_data = hard_data[::sample_every]
+        print(f"  HEL1OS: {len(hard_data)} points")
+
+    # 3. Align and merge (or return SoLEXS-only if no HEL1OS)
+    if hard_data:
+        return align_al1_data(soft_flux_data, hard_data)
+    else:
+        # Return SoLEXS-only data
+        return [{'time': p['time'], 'soft_flux': p['soft_flux'],
+                 'hard_15_25': 0, 'hard_25_50': 0, 'hard_50_100': 0,
+                 'data_gap': True}
+                for p in soft_flux_data]
+
+
+def align_al1_data(soft_data, hard_data):
+    """Align SoLEXS and HEL1OS data by timestamp, filling gaps."""
+    if not soft_data or not hard_data:
+        return []
+
+    soft_map = {r['time']: r for r in soft_data}
+    hard_map = {r['time']: r for r in hard_data}
+
+    t_min = min(min(soft_map.keys()), min(hard_map.keys()))
+    t_max = max(max(soft_map.keys()), max(hard_map.keys()))
+
+    aligned = []
+    last_soft_flux = 5e-8
+    last_soft_time = -99999
+    last_h15 = 3.0
+    last_h25 = 3.0
+    last_h50 = 0.5
+
+    for t in range(t_min, t_max + 1):
+        s = soft_map.get(t)
+        h = hard_map.get(t)
+
+        if s:
+            last_soft_flux = s['soft_flux']
+            last_soft_time = t
+            soft_ok = True
+        else:
+            soft_ok = (t - last_soft_time <= 70)
+
+        if h:
+            last_h15 = h['hard_15_25']
+            last_h25 = h['hard_25_50']
+            last_h50 = h['hard_50_100']
+            hard_ok = True
+        else:
+            hard_ok = False  # Use cached values but flag gap
+
+        data_gap = not (soft_ok and hard_ok)
+
+        aligned.append({
+            'time': t,
+            'soft_flux': last_soft_flux,
+            'hard_15_25': last_h15,
+            'hard_25_50': last_h25,
+            'hard_50_100': last_h50,
+            'data_gap': data_gap
+        })
+
+    return aligned
+
+
+# ==========================================
+# Legacy Support (keep existing functions for mock/replay)
+# ==========================================
+
+# JSON path for backward compatibility with generated mock data
+def load_helios_json(filepath):
+    if not os.path.exists(filepath):
+        filepath = filepath.replace(".fits", ".json")
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+    records = []
+    for r in data:
+        records.append({
+            'time': int(round(r['TIME'])),
+            'hard_15_25': float(r['RATE_15_25keV']),
+            'hard_25_50': float(r['RATE_25_50keV']),
+            'hard_50_100': float(r['RATE_50_100keV'])
+        })
+    return records
+
+
+def load_solexs_json(filepath):
+    if not os.path.exists(filepath):
+        filepath = filepath.replace(".fits", ".json")
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+    time_counts = {}
+    for r in data:
+        t = int(round(r['TIME']))
+        time_counts[t] = time_counts.get(t, 0.0) + float(r['COUNTS'])
+    records = []
+    for t, counts in time_counts.items():
+        records.append({
+            'time': t,
+            'soft_flux': counts * 1.5e-8
+        })
+    return sorted(records, key=lambda x: x['time'])
+
+
+def align_telemetry_json(solexs_list, helios_list):
+    if not solexs_list or not helios_list:
+        return []
+    helios_map = {r['time']: r for r in helios_list}
+    solexs_map = {r['time']: r for r in solexs_list}
+    t_min = min(min(helios_map.keys()), min(solexs_map.keys()))
+    t_max = max(max(helios_map.keys()), max(solexs_map.keys()))
+
+    aligned = []
+    last_hard_15_25 = 3.0
+    last_hard_25_50 = 3.0
+    last_hard_50_100 = 0.5
+    last_soft_flux = 5e-8
+    last_soft_seen_time = -99999
+
+    for t in range(t_min, t_max + 1):
+        h_rec = helios_map.get(t)
+        s_rec = solexs_map.get(t)
+
+        if h_rec:
+            last_hard_15_25 = h_rec['hard_15_25']
+            last_hard_25_50 = h_rec['hard_25_50']
+            last_hard_50_100 = h_rec['hard_50_100']
+            helios_ok = True
+        else:
+            helios_ok = False
+
+        if s_rec:
+            last_soft_flux = s_rec['soft_flux']
+            last_soft_seen_time = t
+            solexs_ok = True
+        else:
+            solexs_ok = (t - last_soft_seen_time <= 70)
+
+        gap = not (helios_ok and solexs_ok)
+
+        aligned.append({
+            'time': t,
+            'soft_flux': last_soft_flux,
+            'hard_15_25': last_hard_15_25,
+            'hard_25_50': last_hard_25_50,
+            'hard_50_100': last_hard_50_100,
+            'data_gap': gap
+        })
+    return aligned
+
+
+def load_and_align(solexs_path, helios_path):
+    """Legacy: load mock JSON data."""
+    if not os.path.exists(solexs_path) and os.path.exists(solexs_path.replace(".fits", ".json")):
+        solexs_path = solexs_path.replace(".fits", ".json")
+    if not os.path.exists(helios_path) and os.path.exists(helios_path.replace(".fits", ".json")):
+        helios_path = helios_path.replace(".fits", ".json")
+
+    print("Using legacy JSON ingestion path...")
+    s_list = load_solexs_json(solexs_path)
+    h_list = load_helios_json(helios_path)
+    return align_telemetry_json(s_list, h_list)
+
+
+def generate_live_stream_point(t_sec, flare_active=False):
+    """Generate simulated data point (for offline/fallback mode)."""
+    import random
+    bg_soft = 5e-8
+    bg_hard = 3.0
+
+    if flare_active:
+        dt = (t_sec % 1200) - 600
+        impulse = 600.0 * math.exp(-((dt + 100) / 90.0) ** 2) if dt < 100 else 10.0
+        cooling = 3.0 * math.exp(-(dt - 100) / 250.0) if dt >= 100 else 0.0
+
+        hard_val = bg_hard + impulse + random.gauss(0, 1.0)
+        soft_val = bg_soft + (impulse * 3.5e-8) + (cooling * 2e-6) + random.gauss(0, 1e-9)
+    else:
+        hard_val = bg_hard + random.gauss(0, 0.4)
+        soft_val = bg_soft + random.gauss(0, 1e-9)
+
+    hard_val = max(0.1, hard_val)
+    soft_val = max(1e-9, soft_val)
+
+    return {
+        'time': int(t_sec),
+        'soft_flux': soft_val,
+        'hard_15_25': hard_val * 2.2,
+        'hard_25_50': hard_val,
+        'hard_50_100': hard_val * 0.12,
+        'data_gap': False
+    }
