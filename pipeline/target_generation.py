@@ -73,3 +73,13 @@ def create_sliding_windows(
         return np.array([]), np.array([]), np.array([])
 
     num_features = features_matrix.shape[1]
+    X_seq = np.zeros((num_samples, window_steps, num_features))
+    y_c = np.zeros(num_samples, dtype=int)
+    y_f = np.zeros(num_samples, dtype=float)
+
+    for i in range(num_samples):
+        X_seq[i] = features_matrix[i : i + window_steps]
+        y_c[i] = targets_class[i + window_steps - 1]
+        y_f[i] = targets_flux[i + window_steps - 1]
+
+    return X_seq, y_c, y_f
