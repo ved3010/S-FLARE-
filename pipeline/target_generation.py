@@ -40,3 +40,46 @@ def create_short_term_targets(
         idx_1min = np.where((times > t_curr + 30) & (times <= t_curr + 60))[0]
         if len(idx_1min) > 0:
             max_f1 = np.max(fluxes[idx_1min])
+            t1_flux[i] = max_f1
+            t1_class[i] = int(max_f1 >= c_flare_threshold)
+
+        # 2-minute horizon window: (t_curr + 90, t_curr + 120]
+        idx_2min = np.where((times > t_curr + 90) & (times <= t_curr + 120))[0]
+        if len(idx_2min) > 0:
+            max_f2 = np.max(fluxes[idx_2min])
+            t2_flux[i] = max_f2
+            t2_class[i] = int(max_f2 >= c_flare_threshold)
+
+    df['target_1min_class'] = t1_class
+    df['target_2min_class'] = t2_class
+    df['target_1min_flux'] = t1_flux
+    df['target_2min_flux'] = t2_flux
+
+    return df
+
+
+def create_sliding_windows(
+    features_matrix: np.ndarray,
+    targets_class: np.ndarray,
+    targets_flux: np.ndarray,
+    window_steps: int = 60
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Creates time-series sliding windows for sequence models (LSTM/TCN).
+    Returns X_seq of shape (num_samples, window_steps, num_features), y_class, y_flux.
+    """
+    num_samples = len(features_matrix) - window_steps + 1
+    if num_samples <= 0:
+        return np.array([]), np.array([]), np.array([])
+
+    num_features = features_matrix.shape[1]
+    X_seq = np.zeros((num_samples, window_steps, num_features))
+    y_c = np.zeros(num_samples, dtype=int)
+    y_f = np.zeros(num_samples, dtype=float)
+
+    for i in range(num_samples):
+        X_seq[i] = features_matrix[i : i + window_steps]
+        y_c[i] = targets_class[i + window_steps - 1]
+        y_f[i] = targets_flux[i + window_steps - 1]
+
+    return X_seq, y_c, y_f
