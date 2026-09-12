@@ -65,3 +65,70 @@ def compute_features_batch(df):
     return df.reset_index(drop=True)
 
 def compute_latest_features(history_df):
+    """Computes features for the single latest row in a DataFrame (Pandas/NumPy path)."""
+    if len(history_df) < 5:
+        import numpy as np
+        return np.zeros(9)
+    processed = compute_features_batch(history_df)
+    latest = processed.iloc[-1]
+    import numpy as np
+    return np.array([
+        latest['soft_flux_log10'], latest['hard_rate_25_50'], latest['hardness_ratio'],
+        latest['hr_slope_10m'], latest['hr_zscore'], latest['flux_derivative_60s'],
+        latest['neupert_residual'], latest['time_since_last_c_flare'], latest['solar_activity_index']
+    ])
+
+# ==========================================
+# 3. Pure-Python Feature Engine (Zero-Dependency)
+# ==========================================
+def compute_latest_features_pure(history_buffer):
+    """Computes features for the single latest record in the history list of dictionaries.
+    Uses pure-Python list operations.
+    """
+    if not history_buffer:
+        return [0.0] * 9
+        
+    last_item = history_buffer[-1]
+    t_curr = last_item['time']
+    soft_curr = last_item['soft_flux']
+    hard_curr = last_item['hard_25_50']
+    
+    # 1. log10 of soft flux
+    soft_log10 = math.log10(max(1e-10, soft_curr))
+    
+    # 2. hard rate 25-50
+    hard_rate = float(hard_curr)
+    
+    # 3. hardness ratio (0.01 - 0.20 scale target)
+    hr_curr = (hard_curr / max(0.1, soft_curr * 1e8)) * 0.035
+    hr_curr = max(0.0, min(0.5, hr_curr))
+    
+    # Calculate list of hardness ratios over history for rolling metrics
+    hr_history = []
+    times = []
+    soft_history = []
+    
+    for item in history_buffer:
+        s = item['soft_flux']
+        h = item['hard_25_50']
+        hr = (h / max(0.1, s * 1e8)) * 0.035
+        hr_history.append(max(0.0, min(0.5, hr)))
+        times.append(item['time'])
+        soft_history.append(s)
+        
+    # Helper to slice history by time window (seconds)
+    def get_indices_in_window(window_sec):
+        indices = []
+        cutoff = t_curr - window_sec
+        for idx, t in enumerate(times):
+            if t >= cutoff:
+                indices.append(idx)
+        return indices
+
+    # 4. hr_mean_10m (10m = 600s window)
+    idx_10m = get_indices_in_window(600)
+    hr_mean = sum(hr_history[i] for i in idx_10m) / len(idx_10m) if idx_10m else hr_curr
+    
+    # 5. hr_slope_10m (slope over 10m window)
+    if len(idx_10m) > 5:
+        # Simple difference divided by time interval
