@@ -132,3 +132,61 @@ def compute_latest_features_pure(history_buffer):
     # 5. hr_slope_10m (slope over 10m window)
     if len(idx_10m) > 5:
         # Simple difference divided by time interval
+        i_old = idx_10m[0]
+        dt = t_curr - times[i_old]
+        hr_slope = (hr_curr - hr_history[i_old]) / dt if dt > 0 else 0.0
+    else:
+        hr_slope = 0.0
+        
+    # 6. hr_zscore (deviation from 30-min window = 1800s)
+    idx_30m = get_indices_in_window(1800)
+    if len(idx_30m) > 10:
+        hr_slice = [hr_history[i] for i in idx_30m]
+        mean_30m = sum(hr_slice) / len(hr_slice)
+        variance = sum((val - mean_30m) ** 2 for val in hr_slice) / len(hr_slice)
+        std_30m = math.sqrt(variance)
+        hr_zscore = (hr_curr - mean_30m) / max(1e-5, std_30m)
+    else:
+        hr_zscore = 0.0
+        
+    # 7. flux_derivative_60s (derivative of soft flux over 60s)
+    idx_60s = get_indices_in_window(60)
+    if len(idx_60s) > 2:
+        i_old = idx_60s[0]
+        dt = t_curr - times[i_old]
+        flux_derivative = (soft_curr - soft_history[i_old]) / dt if dt > 0 else 0.0
+    else:
+        flux_derivative = 0.0
+        
+    # 8. neupert_residual
+    expected_hard = flux_derivative * 1.2e10
+    neupert_residual = abs(hard_rate - expected_hard)
+    
+    # 9. time_since_last_c_flare and solar_activity_index
+    c_flare_threshold = 1e-6
+    last_c_flare_t = -999999.0
+    flare_onsets = []
+    
+    # Scan history to find all C-flares
+    for idx, s_val in enumerate(soft_history):
+        t_val = times[idx]
+        if s_val >= c_flare_threshold:
+            last_c_flare_t = t_val
+            # Count separate flares (30m = 1800s separation)
+            if not flare_onsets or (t_val - flare_onsets[-1] > 1800):
+                flare_onsets.append(t_val)
+                
+    time_since_c = 120.0
+    if last_c_flare_t > 0:
+        time_since_c = (t_curr - last_c_flare_t) / 60.0
+        
+    # Recent activity index: flares in last 6h (21600s)
+    six_hours_ago = t_curr - 21600
+    recent_count = sum(1 for ft in flare_onsets if ft >= six_hours_ago)
+    solar_activity_index = float(recent_count)
+    
+    return [
+        soft_log10, hard_rate, hr_curr,
+        hr_slope, hr_zscore, flux_derivative,
+        neupert_residual, time_since_c, solar_activity_index
+    ]
