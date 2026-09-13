@@ -19,3 +19,24 @@ def _activity_level(flux: float) -> str:
         return "ELEVATED"
     return "NORMAL"
 
+
+def forecast_from_history(history: List[Dict[str, Any]], horizon_minutes: int) -> Dict[str, Any]:
+    """Forecast flux with a robust recent linear trend, using timestamps.
+
+    The regression window is the latest five minutes of observations.  Its
+    slope is clipped to avoid extrapolating a noisy one-sample spike.
+    """
+    if horizon_minutes not in (1, 2):
+        raise ValueError("horizon_minutes must be 1 or 2")
+    clean = [p for p in history if isinstance(p.get("timestamp"), (int, float))
+             and isinstance(p.get("softFlux"), (int, float)) and p["softFlux"] > 0]
+    if len(clean) < 3:
+        raise ValueError("At least three valid observations are required for a forecast")
+    clean.sort(key=lambda p: p["timestamp"])
+    latest = clean[-1]
+    start = latest["timestamp"] - 5 * 60_000
+    recent = [p for p in clean if p["timestamp"] >= start]
+    if len(recent) < 3:
+        recent = clean[-min(len(clean), 60):]
+
+    t0 = recent[0]["timestamp"] / 1000.0
