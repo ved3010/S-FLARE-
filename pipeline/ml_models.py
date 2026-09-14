@@ -1,0 +1,73 @@
+import os
+import json
+import numpy as np
+import pandas as pd
+from typing import Dict, Any, List, Tuple
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    roc_auc_score, confusion_matrix, mean_absolute_error, mean_squared_error, r2_score
+)
+from sklearn.preprocessing import MinMaxScaler
+import torch
+import torch.nn as nn
+
+FEATURE_NAMES = [
+    'soft_flux_log10', 'hard_rate_25_50', 'hardness_ratio',
+    'hr_slope_10m', 'hr_zscore', 'flux_derivative_60s',
+    'neupert_residual', 'time_since_last_c_flare', 'solar_activity_index'
+]
+
+class LSTMFlareModel(nn.Module):
+    def __init__(self, input_dim=9, hidden_dim=32, num_layers=2):
+        super(LSTMFlareModel, self).__init__()
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = out[:, -1, :]
+        prob = self.sigmoid(self.fc(out))
+        return prob
+
+
+class ModelManager:
+    def __init__(self):
+        self.active_model_name = "Random Forest (+1min)"
+        self.scaler = MinMaxScaler()
+        self.models = {}
+        self.metrics = {}
+        self.feature_importances = {}
+        self._initialize_default_models()
+
+    def _initialize_default_models(self):
+        # Generate realistic training set with 9 features matching pipeline schema
+        np.random.seed(42)
+        n_samples = 1200
+        
+        soft = np.random.exponential(scale=1e-6, size=n_samples) + 1e-8
+        hard = soft * np.random.uniform(0.1, 0.5, size=n_samples)
+        hr = (hard / np.maximum(0.1, soft * 1e8)) * 0.035
+        hr_slope = np.gradient(hr)
+        hr_z = (hr - np.mean(hr)) / (np.std(hr) + 1e-5)
+        flux_deriv = np.gradient(soft)
+        neupert_res = np.abs(hard - flux_deriv * 1.2e10)
+        time_since_c = np.random.uniform(10, 180, size=n_samples)
+        solar_act = np.random.poisson(lam=1.5, size=n_samples)
+
+        X = np.column_stack([
+            np.log10(np.maximum(1e-10, soft)),
+            hard, hr, hr_slope, hr_z, flux_deriv, neupert_res, time_since_c, solar_act
+        ])
+        
+        # Supervised short-term targets (+1 min & +2 min)
+        y_1min = (np.roll(soft, -12) >= 1e-6).astype(int)
+        y_2min = (np.roll(soft, -24) >= 1e-6).astype(int)
+
+        X_scaled = self.scaler.fit_transform(X)
+
+        # Chronological Split (70% Train, 15% Val, 15% Test)
+        train_idx = int(0.70 * n_samples)
+        val_idx = int(0.85 * n_samples)
