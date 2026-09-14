@@ -108,3 +108,22 @@ def nowcast_predict(x, weights_path="models/nowcast_cnn_weights.json"):
     # Output: (64,)
     d1_logits = [sum(gap[ci] * w['w_dense1'][ci][co] for ci in range(64)) + w['b_dense1'][co] for co in range(64)]
     d1 = [max(0.0, val) for val in d1_logits]
+    
+    # 6. Dense 2 + Softmax -> input (64,), weights (64, 4)
+    # Output: (4,)
+    logits = py_dense(d1, w['w_dense2'], w['b_dense2'])
+    probs = py_softmax(logits)
+    
+    classes = ["QUIET", "FLARE_ONSET", "FLARE_PEAK", "FLARE_DECAY"]
+    pred_idx = probs.index(max(probs))
+    pred_class = classes[pred_idx]
+    confidence = probs[pred_idx]
+    
+    return probs, pred_class, confidence
+
+if __name__ == "__main__":
+    # Quick test
+    x_test = [[0.0] * 9 for _ in range(60)]
+    probs, cls, conf = nowcast_predict(x_test)
+    print(f"Test probabilities: {probs}")
+    print(f"Test prediction: {cls} (Confidence: {conf:.4f})")
