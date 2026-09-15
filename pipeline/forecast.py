@@ -88,3 +88,18 @@ def forecast_predict(x, weights_path="models/forecast_tcn_weights.json"):
     
     # 5. Global Average Pooling -> input (720, 64)
     gap = py_gap(x4)
+    
+    # 6. Dense 1 + ReLU -> input (64,), weights (64, 32)
+    d1 = py_relu([py_dense(gap, w['w_dense1'], w['b_dense1'])])[0]
+    
+    # 7. Dense 2 + Sigmoid -> input (32,), weights (32, 1)
+    logits = py_dense(d1, w['w_dense2'], w['b_dense2'])
+    prob = py_sigmoid(logits[0])
+    
+    return float(prob)
+
+if __name__ == "__main__":
+    # Quick test
+    x_test = [[0.0] * 9 for _ in range(720)]
+    prob = forecast_predict(x_test)
+    print(f"Test probability: {prob:.4f}")
