@@ -143,3 +143,25 @@ class CatalogEventModel(BaseModel):
     cls: str
     peak: float
     instrument: str
+    lead: int
+    conf: int
+    duration: str
+
+class ConfusionMatrixModel(BaseModel):
+    tp: int
+    fn: int
+    fp: int
+    tn: int
+
+class ValidationMetricsModel(BaseModel):
+    podM: float
+    farM: float
+    csiM: float
+    podX: float
+    farX: float
+    csiX: float
+    meanLeadTime: int
+    confusion: ConfusionMatrixModel
+    skillScore: float
+    totalEvents: int
+    testPeriod: str
