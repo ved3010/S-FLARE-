@@ -23,3 +23,8 @@ class ConnectionManager:
             except Exception:
                 disconnected.append(connection)
                 
+        # Clean up stale connections
+        for conn in disconnected:
+            self.disconnect(conn)
+
+manager = ConnectionManager()
