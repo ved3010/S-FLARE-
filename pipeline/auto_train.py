@@ -1,0 +1,64 @@
+"""
+pipeline/auto_train.py — Background Auto-Retrain Module
+
+Periodically:
+    1. Fetches fresh NOAA GOES X-ray flux data
+    2. Trains NowcastCNN and ForecastTCN on the latest data
+    3. Exports trained weights to models/
+    4. Clears the inference cache so the pipeline uses new weights immediately
+
+Runs in a background daemon thread, integrated with the FastAPI server's startup.
+"""
+
+import os
+import sys
+import time
+import json
+import logging
+import threading
+import subprocess
+from datetime import datetime
+
+logger = logging.getLogger("auto_train")
+# Ensure logger has a handler so background thread output is visible
+if not logger.handlers:
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.INFO)
+
+# ── Cache busting imports (reloaded after training to pick up new weights) ──
+# These modules cache loaded weights in global _WEIGHTS variables.
+# After training, we set _WEIGHTS = None to force re-load on next inference.
+CACHE_MODULES = [
+    "pipeline.nowcast",
+    "pipeline.forecast",
+]
+
+
+def bust_model_cache():
+    """Clear cached model weights so next inference loads the newly trained weights."""
+    import importlib
+    for mod_name in CACHE_MODULES:
+        try:
+            mod = importlib.import_module(mod_name)
+            if hasattr(mod, "_WEIGHTS"):
+                mod._WEIGHTS = None
+                logger.info(f"  Cleared {mod_name}._WEIGHTS cache")
+        except Exception as e:
+            logger.warning(f"  Could not clear {mod_name} cache: {e}")
+
+
+def run_training(epochs=30, lr=0.001):
+    """Execute the training script and return True on success.
+
+    Uses subprocess to run train_real.py in a separate process so memory
+    (PyTorch tensors) is fully released after training completes.
+    """
+    script_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "scripts", "train_real.py"
+    )
+
+    # Use the venv Python (same as the running server) to ensure numpy/torch are available
+    venv_python = sys.executable
+    # Ensure we're not using the system python (which may lack numpy)
+    if 'ucrt64' in venv_python or 'msys' in venv_python:
