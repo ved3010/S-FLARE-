@@ -1248,3 +1248,68 @@ def _compute_feature_importance(flare_class: str):
         "topContributors": top_features,
         "explanation": f"Prediction driven primarily by {top_features[0].lower()}, {top_features[1].lower()}, and {top_features[2].lower()}. These three features account for {sum(f['importance'] for f in sorted_feats[:3])*100:.0f}% of model decision weight."
     }
+
+
+@app.get("/api/explain")
+def get_explanation(flare_class: str = "B1.0"):
+    """Returns feature importance explanation for the current flare prediction."""
+    return _compute_feature_importance(flare_class)
+
+
+class TelemetryUpdate(BaseModel):
+    timestamp_utc: str
+    telemetry: dict
+    features: List[float]
+    status: dict
+
+@app.post("/api/update")
+async def update_telemetry(update: TelemetryUpdate):
+    """Receives new pipeline tick calculations from the separate running loop,
+    updates memory arrays, and broadcasts the status over WebSockets.
+    """
+    global _latest_status, _timeseries_history, _alerts_history
+    
+    # Store latest status payload
+    _latest_status = update.status
+    _alerts_history = update.status.get('alerts', [])
+    
+    # Convert timestamp_utc to Unix ms timestamp for Javascript compatibility
+    try:
+        dt = datetime.fromisoformat(update.timestamp_utc.replace("Z", "+00:00"))
+        ts_ms = int(dt.timestamp() * 1000)
+    except Exception:
+        ts_ms = int(datetime.now().timestamp() * 1000)
+        
+    # Append to timeseries history
+    soft = float(update.telemetry['soft_flux'])
+    hard = float(update.telemetry['hard_25_50'])
+    hr = float(update.features[2])
+    
+    point = {
+        'timestamp': ts_ms,
+        'softFlux': soft,
+        'hardFlux': hard * 1.5e-8,
+        'hardnessRatio': hr
+    }
+    _timeseries_history.append(point)
+    
+    # Keep rolling 24 hours of timeseries in memory (1 point per 5s -> max 17280 points)
+    if len(_timeseries_history) > 20000:
+        _timeseries_history = _timeseries_history[-17280:]
+        
+    # Broadcast to all active WebSocket connections
+    await manager.broadcast(json.dumps(_latest_status))
+    return {"status": "ok"}
+
+@app.websocket("/ws/live")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    # Immediately push the latest status on connection
+    if _latest_status:
+        await websocket.send_text(json.dumps(_latest_status))
+    try:
+        while True:
+            # Maintain connection alive (read messages if client sends any)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
