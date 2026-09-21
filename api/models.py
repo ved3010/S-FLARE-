@@ -114,3 +114,54 @@ class DatasetSummaryModel(BaseModel):
     samplePreview: List[Dict[str, Any]]
 
 class ShortTermPredictionItem(BaseModel):
+    probability: float
+    class_name: str = Field(alias="class")
+    confidence: float
+    predicted_flux: Optional[float] = None
+
+class ShortTermForecastModel(BaseModel):
+    timestamp: str
+    data_source: str
+    nowcast: Dict[str, Any]
+    forecast: Dict[str, Any]
+    model: str
+
+class DataQualityModel(BaseModel):
+    total_records: int
+    missing_values: int
+    missing_pct: float
+    duplicate_timestamps: int
+    data_gaps: int
+    sampling_interval_sec: int
+    solexs_available: bool
+    helios_available: bool
+    last_timestamp: str
+
+class CatalogEventModel(BaseModel):
+    id: int
+    ts: str
+    cls: str
+    peak: float
+    instrument: str
+    lead: int
+    conf: int
+    duration: str
+
+class ConfusionMatrixModel(BaseModel):
+    tp: int
+    fn: int
+    fp: int
+    tn: int
+
+class ValidationMetricsModel(BaseModel):
+    podM: float
+    farM: float
+    csiM: float
+    podX: float
+    farX: float
+    csiX: float
+    meanLeadTime: int
+    confusion: ConfusionMatrixModel
+    skillScore: float
+    totalEvents: int
+    testPeriod: str
