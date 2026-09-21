@@ -1,0 +1,137 @@
+{
+  "Random Forest": {
+    "name": "Random Forest",
+    "horizon_minutes": 2,
+    "accuracy": 100.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1Score": 0.0,
+    "rocAuc": NaN,
+    "mae": 0.0,
+    "confusionMatrix": {
+      "tp": 0,
+      "fp": 0,
+      "tn": 1798,
+      "fn": 0
+    },
+    "featureImportances": {
+      "soft_flux_log10": 0.3473,
+      "hard_rate_25_50": 0.3042,
+      "hardness_ratio": 0.0858,
+      "hr_slope_10m": 0.0171,
+      "hr_zscore": 0.0111,
+      "flux_derivative_60s": 0.0335,
+      "neupert_residual": 0.0727,
+      "time_since_last_c_flare": 0.1252,
+      "solar_activity_index": 0.0032
+    }
+  },
+  "SVM": {
+    "name": "SVM",
+    "horizon_minutes": 2,
+    "accuracy": 99.6,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1Score": 0.0,
+    "rocAuc": NaN,
+    "mae": 0.0,
+    "confusionMatrix": {
+      "tp": 0,
+      "fp": 7,
+      "tn": 1791,
+      "fn": 0
+    },
+    "featureImportances": {
+      "soft_flux_log10": 0.3473,
+      "hard_rate_25_50": 0.3042,
+      "hardness_ratio": 0.0858,
+      "hr_slope_10m": 0.0171,
+      "hr_zscore": 0.0111,
+      "flux_derivative_60s": 0.0335,
+      "neupert_residual": 0.0727,
+      "time_since_last_c_flare": 0.1252,
+      "solar_activity_index": 0.0032
+    }
+  },
+  "XGBoost": {
+    "name": "XGBoost",
+    "horizon_minutes": 2,
+    "accuracy": 100.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1Score": 0.0,
+    "rocAuc": NaN,
+    "mae": 0.0,
+    "confusionMatrix": {
+      "tp": 0,
+      "fp": 0,
+      "tn": 1798,
+      "fn": 0
+    },
+    "featureImportances": {
+      "soft_flux_log10": 0.3473,
+      "hard_rate_25_50": 0.3042,
+      "hardness_ratio": 0.0858,
+      "hr_slope_10m": 0.0171,
+      "hr_zscore": 0.0111,
+      "flux_derivative_60s": 0.0335,
+      "neupert_residual": 0.0727,
+      "time_since_last_c_flare": 0.1252,
+      "solar_activity_index": 0.0032
+    }
+  },
+  "LSTM": {
+    "name": "LSTM",
+    "horizon_minutes": 2,
+    "accuracy": 100.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1Score": 0.0,
+    "rocAuc": NaN,
+    "mae": 0.0,
+    "confusionMatrix": {
+      "tp": 0,
+      "fp": 0,
+      "tn": 1798,
+      "fn": 0
+    },
+    "featureImportances": {
+      "soft_flux_log10": 0.3473,
+      "hard_rate_25_50": 0.3042,
+      "hardness_ratio": 0.0858,
+      "hr_slope_10m": 0.0171,
+      "hr_zscore": 0.0111,
+      "flux_derivative_60s": 0.0335,
+      "neupert_residual": 0.0727,
+      "time_since_last_c_flare": 0.1252,
+      "solar_activity_index": 0.0032
+    }
+  },
+  "TCN": {
+    "name": "TCN",
+    "horizon_minutes": 2,
+    "accuracy": 100.0,
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1Score": 0.0,
+    "rocAuc": NaN,
+    "mae": 0.0,
+    "confusionMatrix": {
+      "tp": 0,
+      "fp": 0,
+      "tn": 1798,
+      "fn": 0
+    },
+    "featureImportances": {
+      "soft_flux_log10": 0.3473,
+      "hard_rate_25_50": 0.3042,
+      "hardness_ratio": 0.0858,
+      "hr_slope_10m": 0.0171,
+      "hr_zscore": 0.0111,
+      "flux_derivative_60s": 0.0335,
+      "neupert_residual": 0.0727,
+      "time_since_last_c_flare": 0.1252,
+      "solar_activity_index": 0.0032
+    }
+  }
+}
