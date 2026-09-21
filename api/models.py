@@ -56,3 +56,61 @@ class HardnessRatioModel(BaseModel):
     threshold: float
     trend: str
     preFlareSignal: bool
+    minutesEarly: int
+
+class AlertModel(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+    ts: str
+    type: str
+    level: str
+    msg: str
+    class_: Optional[str] = Field(default=None, alias="Class")
+    prob: Optional[int] = None
+    hr: Optional[float] = None
+    derivative: Optional[str] = None
+    latency: Optional[str] = None
+    model: Optional[str] = None
+    horizon: Optional[str] = None
+
+class UnifiedStatusModel(BaseModel):
+    systemStatus: SystemStatusModel
+    nowcast: NowcastModel
+    forecast: ForecastModel
+    hardnessRatio: HardnessRatioModel
+    alerts: List[AlertModel]
+    flareClass: Optional[str] = None
+    forecast1Min: Optional[SingleHorizonForecastModel] = None
+    forecast2Min: Optional[SingleHorizonForecastModel] = None
+
+class TimeseriesPoint(BaseModel):
+    timestamp: int
+    softFlux: float
+    hardFlux: float
+    hardnessRatio: float
+
+class ModelComparisonItemModel(BaseModel):
+    name: str
+    type: str
+    accuracy: float
+    precision: float
+    recall: float
+    f1Score: float
+    rocAuc: float
+    mae: float
+    rmse: float
+    r2Score: float
+    active: bool
+    confusionMatrix: Dict[str, int]
+
+class DatasetSummaryModel(BaseModel):
+    filename: str
+    totalRows: int
+    columnNames: List[str]
+    missingValues: Dict[str, int]
+    startTime: str
+    endTime: str
+    flareEventCount: int
+    nonFlareEventCount: int
+    samplePreview: List[Dict[str, Any]]
+
+class ShortTermPredictionItem(BaseModel):
