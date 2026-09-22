@@ -138,3 +138,30 @@ export default function Header({ view, onView, time, onLogoClick }) {
 
           {/* Mobile Hamburger */}
           <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="mobile-menu-btn"
+            aria-label="Toggle navigation menu"
+          >
+            <span>{mobileMenuOpen ? '✕' : '☰'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Nav */}
+      {mobileMenuOpen && (
+        <div className="mobile-nav">
+          {NAV_ITEMS.map(({ key, label, icon }) => (
+            <button
+              key={key}
+              onClick={() => handleView(key)}
+              className={`mobile-nav-item ${view === key ? 'mobile-nav-active' : ''}`}
+            >
+              <span>{icon}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </header>
+  );
+}
