@@ -326,3 +326,332 @@ def get_alerts(limit: int = 20):
 # -------------------------------------------------------------
 # MULTI-MODEL COMPARISON & SELECTION API
 # -------------------------------------------------------------
+class SelectModelRequest(BaseModel):
+    modelName: str
+
+@app.get("/api/models/comparison", response_model=List[ModelComparisonItemModel])
+def get_models_comparison():
+    # Do not present synthetic model scores as evaluated project results.
+    return []
+
+@app.post("/api/models/select")
+def select_active_model(req: SelectModelRequest):
+    success = model_manager.set_active_model(req.modelName)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Model '{req.modelName}' not recognized.")
+    if _latest_status and 'systemStatus' in _latest_status:
+        _latest_status['systemStatus']['modelVersion'] = f"{req.modelName} (Aditya-L1)"
+    return {"status": "ok", "activeModel": req.modelName}
+
+# -------------------------------------------------------------
+# SIMULATION CONTROL API
+# -------------------------------------------------------------
+class SimulationControlRequest(BaseModel):
+    action: str  # start, pause, resume, reset
+    speed: Optional[float] = 1.0
+
+@app.post("/api/simulation/control")
+def control_simulation(req: SimulationControlRequest):
+    global _latest_status
+    action = req.action.lower()
+    if action not in ["start", "pause", "resume", "reset"]:
+        raise HTTPException(status_code=400, detail="Invalid action. Allowed: start, pause, resume, reset")
+    
+    if _latest_status and 'systemStatus' in _latest_status:
+        if action == "pause":
+            _latest_status['systemStatus']['simState'] = "PAUSED"
+        elif action in ["start", "resume"]:
+            _latest_status['systemStatus']['simState'] = "RUNNING"
+        elif action == "reset":
+            _latest_status['systemStatus']['simState'] = "RESETTING"
+        _latest_status['systemStatus']['simSpeed'] = req.speed
+
+    return {
+        "status": "ok",
+        "action": action,
+        "speed": req.speed
+    }
+
+# -------------------------------------------------------------
+# DATASET UPLOAD & EXPLORER API
+# -------------------------------------------------------------
+@app.post("/api/dataset/upload", response_model=DatasetSummaryModel)
+async def upload_dataset(file: UploadFile = File(...)):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Only CSV files are supported.")
+    
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+        
+        cols = [c.lower().strip() for c in df.columns]
+        df.columns = cols
+        
+        # Check required columns
+        has_time = any(c in cols for c in ['timestamp', 'time', 'date', 'datetime'])
+        has_soft = any(c in cols for c in ['soft_xray', 'soft_flux', 'solexs', 'soft'])
+        has_hard = any(c in cols for c in ['hard_xray', 'hard_flux', 'helios', 'hard'])
+        
+        if not (has_time and has_soft and has_hard):
+            raise HTTPException(
+                status_code=400,
+                detail="CSV must contain 'timestamp', 'soft_xray' (or soft_flux/solexs), and 'hard_xray' (or hard_flux/helios) columns."
+            )
+            
+        time_col = next(c for c in cols if c in ['timestamp', 'time', 'date', 'datetime'])
+        soft_col = next(c for c in cols if c in ['soft_xray', 'soft_flux', 'solexs', 'soft'])
+        hard_col = next(c for c in cols if c in ['hard_xray', 'hard_flux', 'helios', 'hard'])
+        
+        # Sort chronologically
+        try:
+            df[time_col] = pd.to_datetime(df[time_col])
+            df = df.sort_values(by=time_col)
+            start_str = df[time_col].iloc[0].strftime("%Y-%m-%d %H:%M:%S")
+            end_str = df[time_col].iloc[-1].strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            start_str = "T-00:00:00"
+            end_str = "T+01:00:00"
+            
+        # Count missing values
+        missing_dict = df.isnull().sum().to_dict()
+        missing_dict = {str(k): int(v) for k, v in missing_dict.items()}
+        
+        # Count flare vs non-flare events
+        flare_mask = df[soft_col] > 1e-6
+        flare_count = int(flare_mask.sum())
+        non_flare_count = len(df) - flare_count
+        
+        # Build sample preview
+        preview_df = df.head(10).copy()
+        preview_df[time_col] = preview_df[time_col].astype(str)
+        preview_data = preview_df.to_dict(orient='records')
+        
+        return DatasetSummaryModel(
+            filename=file.filename,
+            totalRows=len(df),
+            columnNames=list(df.columns),
+            missingValues=missing_dict,
+            startTime=start_str,
+            endTime=end_str,
+            flareEventCount=flare_count,
+            nonFlareEventCount=non_flare_count,
+            samplePreview=preview_data
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process dataset CSV: {str(e)}")
+
+@app.get("/api/catalog", response_model=List[CatalogEventModel])
+def get_catalog():
+    # Hardcoded list of historical events shifted relative to the current system date/time
+    now = datetime.now()
+    events = [
+        { 'id': 6, 'ts': (now - timedelta(hours=2.5)).isoformat() + "Z", 'cls': 'M2.3', 'peak': 2.3e-5, 'instrument': 'SoLEXS+HEL1OS', 'lead': 38, 'conf': 97, 'duration': '14min' },
+        { 'id': 5, 'ts': (now - timedelta(days=1)).isoformat() + "Z", 'cls': 'C5.8', 'peak': 5.8e-6, 'instrument': 'SoLEXS', 'lead': 22, 'conf': 88, 'duration': '9min' },
+        { 'id': 4, 'ts': (now - timedelta(days=2)).isoformat() + "Z", 'cls': 'M1.1', 'peak': 1.1e-5, 'instrument': 'SoLEXS+HEL1OS', 'lead': 31, 'conf': 93, 'duration': '18min' },
+        { 'id': 3, 'ts': (now - timedelta(days=3)).isoformat() + "Z", 'cls': 'X2.7', 'peak': 2.7e-4, 'instrument': 'SoLEXS+HEL1OS', 'lead': 45, 'conf': 96, 'duration': '25min' },
+        { 'id': 2, 'ts': (now - timedelta(days=4)).isoformat() + "Z", 'cls': 'C2.3', 'peak': 2.3e-6, 'instrument': 'SoLEXS', 'lead': 15, 'conf': 76, 'duration': '6min' },
+        { 'id': 1, 'ts': (now - timedelta(days=5)).isoformat() + "Z", 'cls': 'B4.1', 'peak': 4.1e-7, 'instrument': 'SoLEXS', 'lead': 0, 'conf': 0, 'duration': '3min' }
+    ]
+    return events
+
+@app.get("/api/replay/{event_id}")
+def get_replay_event(event_id: int):
+    # Generates a detailed 2-hour timeseries detailing the flare profile for Replay mode
+    if event_id not in [1, 2, 3, 4, 5, 6]:
+        raise HTTPException(status_code=404, detail="Event not found")
+        
+    # Setup values based on event size
+    cls_str = "M2.3"
+    peak_val = 2.3e-5
+    lead = 38
+    duration = 14
+    
+    if event_id == 3:
+        cls_str = "X2.7"
+        peak_val = 2.7e-4
+        lead = 45
+        duration = 25
+    elif event_id == 5:
+        cls_str = "C5.8"
+        peak_val = 5.8e-6
+        lead = 22
+        duration = 9
+        
+    duration_sec = 3600
+    base_time = int(datetime.now().timestamp()) - 1800
+    
+    replay_points = []
+    
+    for i in range(duration_sec // 10): # 1 point per 10 seconds
+        t_sec = base_time + i * 10
+        elapsed_min = (i * 10 - 1800) / 60.0
+        
+        # Build flare curve
+        bg_soft = 5e-8
+        bg_hard = 3.0
+        
+        soft = bg_soft
+        hard = bg_hard
+        
+        # Pre-flare
+        if -30 <= elapsed_min < 0:
+            pct = (elapsed_min + 30) / 30.0
+            hard += math.sin(elapsed_min * 0.4) * 2.0 * pct + pct * 5.0
+            soft += pct * 2e-8
+        # Impulsive
+        elif 0 <= elapsed_min < 10:
+            impulse = math.exp(-((elapsed_min - 3) / 3.0)**2)
+            hard += impulse * (peak_val * 1e7)
+            soft += (elapsed_min / 10.0) * (peak_val * 0.4)
+        # Decay
+        elif 10 <= elapsed_min <= 30:
+            decay = math.exp(-(elapsed_min - 10) / 12.0)
+            hard += decay * 10
+            soft += peak_val * decay
+            
+        hr = (hard / (soft * 1e8)) * 0.035
+        
+        # Prepare state values at this specific step
+        state = "QUIET"
+        state_lbl = "Quiet Sun"
+        state_col = "#2ECC71"
+        phase = "Quiet Sun"
+        
+        if -30 <= elapsed_min < 0:
+            state = "WATCH"
+            state_lbl = "Elevated Hardness"
+            state_col = "#F1C40F"
+            phase = "Pre-Flare Warning"
+        elif 0 <= elapsed_min < 10:
+            state = "ACTIVE"
+            state_lbl = "Active Flare"
+            state_col = "#E74C3C"
+            phase = "Impulsive Onset"
+        elif 10 <= elapsed_min <= 30:
+            state = "ACTIVE"
+            state_lbl = "Flare In Progress"
+            state_col = "#E74C3C"
+            phase = "Gradual Decay"
+            
+        prob = int(12 + (elapsed_min + 45) * 1.5) if elapsed_min < 0 else 98
+        prob = max(12, min(98, prob))
+        
+        replay_points.append({
+            'timestamp': t_sec * 1000,
+            'softFlux': soft,
+            'hardFlux': hard * 1.5e-8,
+            'hardnessRatio': hr,
+            'status': {
+                'systemStatus': {
+                    'state': state,
+                    'stateLabel': state_lbl,
+                    'stateColor': state_col,
+                    'since': datetime.fromtimestamp(base_time + 1800).isoformat() + "Z",
+                    'pipeline': 'Operational',
+                    'dataLatency': '0.9s',
+                    'lastSync': datetime.fromtimestamp(t_sec).isoformat() + "Z",
+                    'pradanSync': 'Healthy',
+                    'al1Sync': 'Healthy',
+                    'modelVersion': 'v2.1.3'
+                },
+                'nowcast': {
+                    'class': cls_str if state == "ACTIVE" else "—",
+                    'peakFlux': peak_val if state == "ACTIVE" else soft,
+                    'onset': datetime.fromtimestamp(base_time + 1800).isoformat() + "Z",
+                    'peakTime': datetime.fromtimestamp(base_time + 1980).isoformat() + "Z",
+                    'currentPhase': phase,
+                    'adaptiveThreshold': 3.0,
+                    'rollingMAD': 2.8e-8,
+                    'zScore': 4.5 if state == "ACTIVE" else 0.5,
+                    'confidence': 0.95
+                },
+                'forecast': {
+                    'probability': prob,
+                    'updatedAt': datetime.fromtimestamp(t_sec).isoformat() + "Z",
+                    'windowStart': datetime.fromtimestamp(base_time).isoformat() + "Z",
+                    'windowEnd': datetime.fromtimestamp(base_time + 3600).isoformat() + "Z",
+                    'nextClass': cls_str,
+                    'leadTime': lead if elapsed_min < 0 else 0,
+                    'tcnConfidence': prob / 100.0
+                },
+                'hardnessRatio': {
+                    'current': hr,
+                    'baseline': 0.035,
+                    'threshold': 0.06,
+                    'trend': 'rising' if elapsed_min < 0 else 'falling',
+                    'preFlareSignal': elapsed_min < 0 and hr > 0.06,
+                    'minutesEarly': lead
+                }
+            }
+        })
+        
+    return {
+        'id': event_id,
+        'class': cls_str,
+        'leadTime': lead,
+        'peakFlux': peak_val,
+        'points': replay_points
+    }
+
+@app.get("/api/metrics", response_model=ValidationMetricsModel)
+def get_metrics():
+    # Attempt to load results from file system
+    results_path = "data/processed/backtest_results.json"
+    if os.path.exists(results_path):
+        try:
+            with open(results_path, "r") as f:
+                return json.load(f)
+        except Exception:
+            pass
+            
+    raise HTTPException(
+        status_code=503,
+        detail="Evaluation metrics are unavailable: the bundled sample has no labelled flare events."
+    )
+
+# ─────────────────────────────────────────────────
+# Impact Assessment Endpoint
+# ─────────────────────────────────────────────────
+
+def _parse_flare_class(fc: str):
+    """Parse a GOES flare class string into (letter, number) tuple."""
+    fc = fc.strip().upper()
+    if not fc:
+        return ('B', 1.0)
+    letter = fc[0]
+    try:
+        number = float(fc[1:])
+    except (ValueError, IndexError):
+        number = 1.0
+    return (letter, number)
+
+def _get_impact_data(flare_class: str):
+    """Return infrastructure impact assessment based on NOAA Space Weather Scale."""
+    letter, number = _parse_flare_class(flare_class)
+    
+    is_nominal = letter in ('A', 'B')
+    
+    # Determine severity tier
+    if is_nominal:
+        tier = 'nominal'
+        noaa = 'Below R1 (Quiet)'
+    elif letter == 'C':
+        tier = 'minor'
+        noaa = 'R1 (Minor)'
+    elif letter == 'M' and number <= 4.9:
+        tier = 'moderate'
+        noaa = 'R1–R2 (Minor–Moderate)'
+    elif letter == 'M':
+        tier = 'high'
+        noaa = 'R2–R3 (Moderate–Strong)'
+    elif letter == 'X' and number <= 4.9:
+        tier = 'critical'
+        noaa = 'R3–R4 (Strong–Severe)'
+    elif letter == 'X' and number <= 9.9:
+        tier = 'severe'
+        noaa = 'R4 (Severe)'
+    else:
+        tier = 'extreme'
+        noaa = 'R5 (Extreme)'
+    
+    categories = []
