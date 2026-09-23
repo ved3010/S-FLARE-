@@ -418,3 +418,52 @@ export default function FluxChart({ data, range, onRange }) {
                 <span className="w-2.5 h-[2px] bg-[#E67E22] inline-block rounded-full" style={{ boxShadow: '0 0 4px rgba(230,126,34,0.5)' }} />
                 <span className="text-[#8B949E] hidden xs:inline">SOFT</span>
               </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-[2px] bg-[#3498DB] inline-block rounded-full" style={{ boxShadow: '0 0 4px rgba(52,152,219,0.5)' }} />
+                <span className="text-[#8B949E] hidden xs:inline">HARD</span>
+              </div>
+            </div>
+
+            {/* Range selector */}
+            <div className="flex bg-[#0D1117]/60 backdrop-blur-sm p-0.5 border border-[rgba(255,255,255,0.06)] rounded-md">
+              {[1, 3, 6, 12].map(h => (
+                <button
+                  key={h}
+                  className={`text-[8px] sm:text-[9px] font-mono px-1.5 sm:px-2.5 py-0.5 rounded cursor-pointer transition-all duration-200 ${
+                    range === h
+                      ? 'bg-white text-black font-bold shadow-sm'
+                      : 'text-[#8B949E] hover:text-white hover:bg-[#21262D]/50'
+                  }`}
+                  onClick={() => onRange(h)}
+                >
+                  {h}H
+                </button>
+              ))}
+            </div>
+
+            {/* Fullscreen toggle */}
+            <button
+              onClick={toggleFs}
+              className="text-[#8B949E] hover:text-white transition-colors duration-200 p-1 rounded-md hover:bg-[#21262D]/50 cursor-pointer"
+              title="Expand fullscreen"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* SVG Canvas */}
+        <div ref={containerRef} className="dash-card-body flex-1 overflow-hidden relative">
+          {renderChartSvg()}
+          {renderTooltip()}
+        </div>
+      </div>
+    </>
+  );
+}
+
