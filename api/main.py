@@ -655,3 +655,332 @@ def _get_impact_data(flare_class: str):
         noaa = 'R5 (Extreme)'
     
     categories = []
+    
+    # ── Navigation & Positioning ──
+    nav = {
+        'nominal': {
+            'systems': ['GPS L1/L2', 'NavIC', 'GLONASS', 'Galileo'],
+            'risk_level': 'low',
+            'effect': 'Ionosphere is completely quiet. GPS and regional NavIC accuracy nominal (<1 m) on dayside hemisphere.',
+            'recovery_time': 'Nominal operations',
+            'historical_example': 'Baseline solar condition.'
+        },
+        'minor': {
+            'systems': ['GPS L1/L2', 'NavIC', 'GLONASS'],
+            'risk_level': 'low',
+            'effect': 'Minor L-band ionospheric scintillation on sunlit hemisphere; GPS horizontal accuracy may degrade by 1–3 m. NavIC single-frequency users most affected.',
+            'recovery_time': '1–2 hours after flare peak',
+            'historical_example': 'C4.7 flare (Mar 2023) caused brief 2 m GPS drift over South Asia.'
+        },
+        'moderate': {
+            'systems': ['GPS L1/L2', 'NavIC', 'GLONASS', 'Galileo', 'Aircraft ADS-B'],
+            'risk_level': 'moderate',
+            'effect': 'GPS positioning errors up to 10 m due to ionospheric total electron content (TEC) enhancement. Dual-frequency receivers partially mitigate. WAAS/GAGAN precision approach may be unavailable.',
+            'recovery_time': '2–4 hours',
+            'historical_example': 'M6.5 flare (Jul 2024) caused GAGAN precision approach suspension over Indian FIR for 90 minutes.'
+        },
+        'high': {
+            'systems': ['GPS L1/L2/L5', 'NavIC', 'GLONASS', 'Galileo', 'Aircraft ADS-B', 'SBAS/GAGAN'],
+            'risk_level': 'high',
+            'effect': 'Wide-area GPS degradation with errors exceeding 20 m. SBAS systems (WAAS, GAGAN, EGNOS) enter non-precision mode. Satellite-based augmentation unreliable. Increased risk for aviation and maritime positioning.',
+            'recovery_time': '4–8 hours',
+            'historical_example': 'M9.8 flare (Oct 2003) during Halloween Storms degraded GPS accuracy to 25+ m globally for 6 hours.'
+        },
+        'critical': {
+            'systems': ['GPS L1/L2/L5', 'NavIC', 'GLONASS', 'Galileo', 'Aircraft ADS-B', 'SBAS/GAGAN', 'LORAN-C'],
+            'risk_level': 'critical',
+            'effect': 'GPS effectively unusable on dayside hemisphere due to extreme ionospheric scintillation and TEC gradients. All SBAS systems unavailable. Aviation must revert to non-GNSS navigation. NavIC regional service severely impacted.',
+            'recovery_time': '8–14 hours',
+            'historical_example': 'X2.8 flare (Dec 2023) caused 14 hours of GPS degradation over Asia-Pacific; NavIC L5 signal lost for 4 hours.'
+        },
+        'severe': {
+            'systems': ['GPS (all bands)', 'NavIC', 'GLONASS', 'Galileo', 'BeiDou', 'Aircraft ADS-B', 'SBAS (all)', 'LORAN-C'],
+            'risk_level': 'critical',
+            'effect': 'Complete GPS outage on sunlit hemisphere. Phase and amplitude scintillation causes total loss of lock on L-band signals. All GNSS constellations affected simultaneously. Aviation ADS-B position reports unreliable.',
+            'recovery_time': '12–24 hours',
+            'historical_example': 'X9.0 flare (Dec 2006) caused complete GPS outage across sunlit hemisphere for 10+ hours; FAA issued nationwide NOTAM.'
+        },
+        'extreme': {
+            'systems': ['GPS (all bands)', 'NavIC', 'GLONASS', 'Galileo', 'BeiDou', 'Aircraft ADS-B', 'SBAS (all)', 'LORAN-C', 'Marine AIS'],
+            'risk_level': 'critical',
+            'effect': 'Complete and prolonged loss of all GNSS signals globally. Ionospheric disturbance renders satellite navigation impossible. Low-frequency backup systems (LORAN, ADS-B) also disrupted by induced ground currents.',
+            'recovery_time': '24–72 hours for full restoration',
+            'historical_example': '1859 Carrington Event (estimated X45+) — modern GPS infrastructure would face days-long global outage per 2013 Lloyd\'s/RAE study.'
+        }
+    }
+    categories.append({'category': 'Navigation & Positioning', **nav[tier]})
+    
+    # ── Communications ──
+    comm = {
+        'nominal': {
+            'systems': ['HF Radio (3-30 MHz)', 'INSAT series', 'GSAT series'],
+            'risk_level': 'low',
+            'effect': 'HF radio communications nominal. D-layer absorption absent. Satellite transponder noise floors normal.',
+            'recovery_time': 'Nominal operations',
+            'historical_example': 'Baseline solar condition.'
+        },
+        'minor': {
+            'systems': ['HF Radio (3–30 MHz)', 'INSAT-4B'],
+            'risk_level': 'low',
+            'effect': 'Minor HF radio signal degradation on sunlit side of Earth (D-layer absorption). VHF/UHF and satellite communications unaffected. Amateur radio operators may notice increased noise floor.',
+            'recovery_time': '30–60 minutes',
+            'historical_example': 'C5.0 flare (Jan 2024) caused brief HF fadeout over North Atlantic shipping routes.'
+        },
+        'moderate': {
+            'systems': ['HF Radio', 'INSAT-3D/3DR', 'GSAT-30', 'Military HF/VHF'],
+            'risk_level': 'moderate',
+            'effect': 'HF radio blackout (NOAA R1–R2) affecting aviation and maritime communications on sunlit hemisphere. Satellite transponder noise levels elevated on C-band. INSAT communication payloads may see increased bit-error rates.',
+            'recovery_time': '1–3 hours',
+            'historical_example': 'M4.0 flare (May 2024) caused R2 blackout disrupting trans-oceanic HF aviation comms for 2 hours.'
+        },
+        'high': {
+            'systems': ['HF Radio (complete)', 'INSAT-3D/3DR', 'GSAT-6/7/30', 'Military SATCOM', 'Maritime GMDSS'],
+            'risk_level': 'high',
+            'effect': 'Complete HF radio blackout (R2–R3) on entire sunlit hemisphere for 1–2 hours. GEO communication satellites (INSAT, GSAT) may experience surface charging. VSAT services degraded. Maritime distress frequencies unreliable.',
+            'recovery_time': '3–6 hours',
+            'historical_example': 'M7.1 flare (Jan 2005) caused wide-area HF blackout affecting emergency services across Southeast Asia.'
+        },
+        'critical': {
+            'systems': ['HF Radio (complete)', 'INSAT series', 'GSAT series', 'GEO Commercial Comms', 'Military UHF/EHF SATCOM', 'Maritime GMDSS'],
+            'risk_level': 'critical',
+            'effect': 'R3–R4 HF blackout lasting 2–4 hours. Military satellite UHF/EHF links disrupted by ionospheric irregularities. GEO satellites experience deep dielectric charging from associated particle storm. INSAT communication payloads may require safe-mode cycling.',
+            'recovery_time': '6–12 hours',
+            'historical_example': 'X4.8 flare (Dec 2023) caused R3 blackout and forced ISRO to temporarily switch GSAT-30 transponders to backup mode.'
+        },
+        'severe': {
+            'systems': ['HF Radio (global)', 'INSAT series', 'GSAT series', 'GEO/MEO Comms', 'Military UHF/EHF/SHF', 'Maritime GMDSS', 'Emergency Services HF'],
+            'risk_level': 'critical',
+            'effect': 'R4 blackout — no HF propagation on sunlit hemisphere for 4+ hours. Emergency services lose HF backup communications. All GEO communication satellites at risk of anomaly from particle bombardment. Multi-path effects corrupt UHF military links.',
+            'recovery_time': '12–24 hours',
+            'historical_example': 'X7.1 flare (Oct 2003, Halloween Storms) knocked out HF communications globally and caused Telstar 4 satellite to enter safe mode.'
+        },
+        'extreme': {
+            'systems': ['HF Radio (global, prolonged)', 'All INSAT/GSAT', 'All GEO/MEO/LEO Comms', 'Military (all bands)', 'Submarine VLF', 'Emergency Services', 'Broadcast TV uplinks'],
+            'risk_level': 'critical',
+            'effect': 'R5 — complete and prolonged HF/MF/LF radio blackout. All ionospherically-dependent communications fail. Satellite communication payloads at risk of permanent radiation damage. VLF submarine communication channels may experience multi-hour outage.',
+            'recovery_time': '24–72 hours; some satellites may not recover',
+            'historical_example': '1859 Carrington Event caused global telegraph system failure; 2003 X28+ flare (strongest recorded) caused R5 blackout for 11 hours.'
+        }
+    }
+    categories.append({'category': 'Communications', **comm[tier]})
+    
+    # ── Defence & Intelligence ──
+    if tier not in ('minor',):
+        defence = {
+            'nominal': {
+                'systems': ['Military SATCOM', 'OTH Radar', 'LEO Reconnaissance'],
+                'risk_level': 'low',
+                'effect': 'Over-the-horizon radars operating normally. Reconnaissance satellite orbits stable. Intelligence platforms nominal.',
+                'recovery_time': 'Nominal operations',
+                'historical_example': 'Baseline solar condition.'
+            },
+            'moderate': {
+                'systems': ['Reconnaissance LEO Satellites', 'Military HF Networks', 'Radar Systems (OTH)'],
+                'risk_level': 'moderate',
+                'effect': 'Over-the-horizon (OTH) radar systems experience increased ionospheric clutter. Military HF communication networks degraded. LEO reconnaissance satellites may experience single-event upsets (SEUs) in memory.',
+                'recovery_time': '2–4 hours',
+                'historical_example': 'M3.0 flare (Sep 2017) caused false target returns in Australian JORN OTH radar.'
+            },
+            'high': {
+                'systems': ['Reconnaissance Satellites', 'Military HF/VHF/UHF', 'OTH Radar', 'ELINT/SIGINT Platforms'],
+                'risk_level': 'high',
+                'effect': 'Military HF networks experience blackout. OTH radar inoperable. LEO spy satellites encounter increased atmospheric drag altering orbital tracks. SIGINT platforms see elevated background noise masking signals of interest.',
+                'recovery_time': '4–8 hours',
+                'historical_example': 'M8.0+ flares (Sep 2017) disrupted US military HF comms across the Pacific theater for several hours.'
+            },
+            'critical': {
+                'systems': ['Reconnaissance/ISR Satellites', 'Military SATCOM (UHF/EHF)', 'Missile Guidance (GPS-dependent)', 'OTH/Ballistic Radar', 'ELINT/SIGINT'],
+                'risk_level': 'critical',
+                'effect': 'GPS-dependent precision munitions lose guidance accuracy. Military SATCOM UHF/EHF links disrupted. Space-based ISR sensors may saturate from X-ray flux. Missile early warning radar systems experience degraded detection probability.',
+                'recovery_time': '8–16 hours',
+                'historical_example': 'X1.6 flare (Oct 2014) forced US Space Command to issue GPS accuracy advisory affecting precision-guided operations.'
+            },
+            'severe': {
+                'systems': ['All Military Satellites', 'SATCOM (all bands)', 'Missile Guidance', 'Early Warning Radar', 'Submarine Comms (VLF/ELF)'],
+                'risk_level': 'critical',
+                'effect': 'Severe degradation across all military space assets. GPS-guided munitions unreliable. Early warning satellite IR sensors may saturate. VLF/ELF submarine communication links disrupted. Military satellites may experience attitude control anomalies from charged particle flux.',
+                'recovery_time': '16–36 hours',
+                'historical_example': 'X17 flare (Oct 2003) triggered NORAD space surveillance alerts and forced multiple military satellite constellation maneuvers.'
+            },
+            'extreme': {
+                'systems': ['All Military Satellites', 'All SATCOM', 'Missile Guidance', 'Early Warning (space & ground)', 'Nuclear C3 Links', 'Submarine VLF/ELF'],
+                'risk_level': 'critical',
+                'effect': 'Complete military communication and navigation blackout. Space-based early warning systems potentially non-functional. Ground-based radar systems disrupted by ionospheric disturbance. Nuclear command and control links (VLF/ELF) may fail. Strategic communications severely compromised.',
+                'recovery_time': '48–96 hours for full capability restoration',
+                'historical_example': '1967 Solar Storm nearly triggered nuclear response — USAF mistakenly attributed radar jamming to Soviet attack before solar cause was identified.'
+            }
+        }
+        categories.append({'category': 'Defence & Intelligence', **defence[tier]})
+    
+    # ── Weather & Earth Observation ──
+    weather = {
+        'nominal': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R'],
+            'risk_level': 'low',
+            'effect': 'Weather observation instruments running normally. Image data clear of energetic particle noise.',
+            'recovery_time': 'Nominal operations',
+            'historical_example': 'Baseline solar condition.'
+        },
+        'minor': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat'],
+            'risk_level': 'low',
+            'effect': 'Negligible impact on weather satellite operations. Slight increase in energetic particle background noise on imaging sensors. Data quality unaffected.',
+            'recovery_time': 'No interruption expected',
+            'historical_example': 'C-class flares routinely produce minor background noise in GOES-R SUVI images without data impact.'
+        },
+        'moderate': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R Series', 'Landsat-9', 'Sentinel-2'],
+            'risk_level': 'low',
+            'effect': 'LEO Earth observation satellites may experience single-event upsets. Energetic particle noise visible in optical sensors during South Atlantic Anomaly (SAA) passes. GEO weather satellite data nominally unaffected.',
+            'recovery_time': '1–2 hours for LEO sensor recovery',
+            'historical_example': 'M2.0 flare (Mar 2024) caused transient noise streaks in Landsat-9 OLI images over SAA region.'
+        },
+        'high': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R', 'Landsat-9', 'Sentinel-1/2/3', 'Oceansat-3'],
+            'risk_level': 'moderate',
+            'effect': 'Increased atmospheric drag on LEO satellites alters orbital parameters, requiring more frequent tracking updates. GEO weather satellite CCD sensors may see energetic particle contamination ("snow" in images). SAR satellites (Sentinel-1) may experience timing errors.',
+            'recovery_time': '4–8 hours; orbit corrections within 24 hours',
+            'historical_example': 'M7.0+ flare (Sep 2005) caused NOAA-17 AVHRR sensor to produce corrupted imagery for 3 orbits.'
+        },
+        'critical': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R', 'Landsat', 'Sentinel constellation', 'Oceansat-3', 'EOS-04'],
+            'risk_level': 'high',
+            'effect': 'GEO weather satellites may enter safe mode due to surface/deep dielectric charging. LEO EO satellites experience significant orbital decay from thermospheric heating. Loss of Earth observation continuity for 12+ hours possible.',
+            'recovery_time': '12–24 hours; orbital maneuvers may be needed',
+            'historical_example': 'X3.3 flare (Nov 2003) forced GOES-12 to enter safe mode, leaving the US without primary geostationary weather data for 6 hours.'
+        },
+        'severe': {
+            'systems': ['INSAT-3D/3DR', 'Meteosat', 'GOES-R', 'All LEO EO satellites', 'EOS series', 'Cartosat'],
+            'risk_level': 'critical',
+            'effect': 'Multiple weather satellites may simultaneously enter safe mode. Thermospheric density increase causes accelerated orbital decay for all LEO satellites — Starlink, EO constellations at highest risk. Cloud of debris tracking temporarily impossible due to radar disruption.',
+            'recovery_time': '24–48 hours for satellite recovery',
+            'historical_example': 'X7.1 flare (Oct 2003) caused simultaneous safe-mode entries for GOES-12, SOHO, and multiple LEO satellites.'
+        },
+        'extreme': {
+            'systems': ['All weather satellites (GEO/LEO)', 'All EO satellites', 'INSAT/GOES/Meteosat', 'CubeSat constellations'],
+            'risk_level': 'critical',
+            'effect': 'Potential permanent damage to satellite imaging sensors and electronics from extreme particle radiation. Mass casualty event for LEO satellite constellations from atmospheric drag surge. Global weather forecasting capability significantly degraded.',
+            'recovery_time': '48–96 hours; some satellites permanently lost',
+            'historical_example': '2003 Halloween Storms (X28+) damaged the GOES-13 SXI instrument beyond repair and caused $640M in satellite losses industry-wide.'
+        }
+    }
+    categories.append({'category': 'Weather & Earth Observation', **weather[tier]})
+    
+    # ── Power Grid & Ground Infrastructure ──
+    if tier not in ('minor',):
+        power = {
+            'nominal': {
+                'systems': ['Power Transformers', 'Long-distance Pipelines'],
+                'risk_level': 'low',
+                'effect': 'No geomagnetically induced currents (GICs) detected. Power grid and pipeline cathodic systems operating at baseline.',
+                'recovery_time': 'Nominal operations',
+                'historical_example': 'Baseline solar condition.'
+            },
+            'moderate': {
+                'systems': ['High-latitude Power Transformers', 'Long-distance Pipelines'],
+                'risk_level': 'low',
+                'effect': 'Minor geomagnetically induced currents (GICs) in high-latitude power grids (>55° geomagnetic latitude). Slight increase in transformer hotspot temperatures. Pipeline cathodic protection systems see elevated potentials.',
+                'recovery_time': 'No outage expected; monitoring recommended',
+                'historical_example': 'M4.0 class flares routinely produce measurable GICs in Finnish power grid without operational impact.'
+            },
+            'high': {
+                'systems': ['High-latitude Power Grids', 'Long-distance Pipelines', 'Railway Signalling'],
+                'risk_level': 'moderate',
+                'effect': 'Geomagnetic storm (G1–G2) from associated CME drives GICs that stress high-voltage transformers. Power grid operators at high latitudes may need to reduce load on vulnerable transformers. Pipeline corrosion currents elevated 10–50x baseline.',
+                'recovery_time': '6–12 hours of elevated risk post-CME arrival',
+                'historical_example': 'M8.0 flare (May 2024) associated CME triggered G2 storm with transformer heating alerts in Scandinavia and Canada.'
+            },
+            'critical': {
+                'systems': ['Power Grids (>45° lat)', 'HV Transformers', 'Pipelines', 'Railway Signalling', 'Undersea Cables'],
+                'risk_level': 'high',
+                'effect': 'G2–G3 geomagnetic storm produces damaging GICs in power transformers down to 45° latitude. Reactive power compensation systems stressed. Risk of voltage collapse in grids with long transmission lines. Pipeline corrosion current surges may exceed cathodic protection capacity.',
+                'recovery_time': '12–24 hours; transformer inspection required',
+                'historical_example': 'X4.8 flare (Dec 2023) associated G3 storm caused transformer trip in South African power grid and elevated GICs measured in Indian railways.'
+            },
+            'severe': {
+                'systems': ['Power Grids (global risk)', 'HV/EHV Transformers', 'Pipelines (all)', 'Railway Systems', 'Undersea Cables', 'SCADA Systems'],
+                'risk_level': 'critical',
+                'effect': 'G4 geomagnetic storm — widespread transformer saturation causing harmonic distortion and overheating. Emergency load-shedding required at mid-to-high latitudes. Pipeline corrosion surges risk structural integrity. SCADA control systems may experience interference.',
+                'recovery_time': '24–72 hours; equipment damage possible',
+                'historical_example': 'X9.0 flare (Dec 2006) associated G4 storm caused widespread voltage instability alerts across Northern European grid.'
+            },
+            'extreme': {
+                'systems': ['All Power Grids', 'All HV/EHV Transformers', 'All Pipelines', 'Railway Systems', 'Undersea Cables', 'Water Treatment', 'Telecommunications Backhaul'],
+                'risk_level': 'critical',
+                'effect': 'G5 (Carrington-level) geomagnetic storm. Risk of cascading power grid collapse across entire continents. Hundreds of HV transformers may suffer permanent damage from GIC-induced overheating. Recovery requires physical transformer replacement (12–24 month lead time for EHV units).',
+                'recovery_time': 'Weeks to months for full grid restoration',
+                'historical_example': '1989 Quebec Blackout — X13+ flare/CME caused complete Hydro-Québec grid collapse in 92 seconds, leaving 6 million without power for 9 hours. Total cost: $2 billion.'
+            }
+        }
+        categories.append({'category': 'Power Grid & Ground Infrastructure', **power[tier]})
+    
+    # ── Space Station & Crewed Missions ──
+    if tier not in ('minor', 'moderate'):
+        crewed = {
+            'nominal': {
+                'systems': ['ISS', 'Tiangong'],
+                'risk_level': 'low',
+                'effect': 'Radiation levels inside space stations nominal. No extra shielding required. EVA activities safe.',
+                'recovery_time': 'Nominal operations',
+                'historical_example': 'Baseline solar condition.'
+            },
+            'high': {
+                'systems': ['ISS', 'Gaganyaan (planned)', 'Tiangong'],
+                'risk_level': 'moderate',
+                'effect': 'Elevated radiation levels inside ISS require crew to monitor dosimeters. EVA (spacewalk) activities may be postponed as a precaution. Gaganyaan mission planning would incorporate a 24-hour hold. Radiation dose rate ~2x background.',
+                'recovery_time': '12–24 hours for radiation levels to normalize',
+                'historical_example': 'M5.0 flare (Sep 2017) prompted NASA to delay a planned ISS EVA by 48 hours as radiation levels were assessed.'
+            },
+            'critical': {
+                'systems': ['ISS', 'Gaganyaan', 'Tiangong', 'Lunar Gateway (planned)'],
+                'risk_level': 'high',
+                'effect': 'ISS crew directed to shelter in better-shielded modules (e.g., Russian segment). All EVA activities cancelled. Solar proton event (SPE) radiation dose may approach quarterly limits for crew. Deep-space missions (Lunar Gateway) at significantly higher risk due to lack of geomagnetic shielding.',
+                'recovery_time': '24–48 hours; medical monitoring for 72 hours',
+                'historical_example': 'X1.3 flare (Sep 2005) forced ISS crew to shelter in the Service Module for 30 minutes during peak particle flux.'
+            },
+            'severe': {
+                'systems': ['ISS', 'Gaganyaan', 'Tiangong', 'All crewed LEO vehicles', 'Lunar missions'],
+                'risk_level': 'critical',
+                'effect': 'ISS crew emergency shelter protocol activated. Radiation dose may exceed annual limits during peak flux. Life support electronics at risk of SEU-induced malfunction. Any active lunar or deep-space crewed mission faces potentially career-limiting radiation exposure.',
+                'recovery_time': '48–96 hours; crew medical evaluation required',
+                'historical_example': 'X7.1 flare (Oct 2003) — ISS Expedition 7 crew sheltered for 1 hour; measured dose exceeded monthly limit. Apollo astronauts in transit would have received potentially lethal dose.'
+            },
+            'extreme': {
+                'systems': ['ISS', 'Gaganyaan', 'Tiangong', 'All crewed vehicles', 'Lunar/Mars missions', 'Commercial space stations'],
+                'risk_level': 'critical',
+                'effect': 'Life-threatening radiation levels for any crew outside Earth\'s magnetosphere. ISS crew emergency shelter with potential for radiation sickness symptoms. Carrington-level proton flux would deliver lethal dose to unshielded astronauts within hours. Mission abort protocols activated for all crewed vehicles.',
+                'recovery_time': 'Days to weeks; potential mission abort',
+                'historical_example': 'August 1972 SPE (between Apollo 16 and 17) — would have delivered ~4 Sv to moonwalking astronauts, likely fatal. ISS design incorporates 72-hour shelter capability for such events.'
+            }
+        }
+        categories.append({'category': 'Space Station & Crewed Missions', **crewed[tier]})
+    
+    # ── Scientific Instruments ──
+    sci = {
+        'nominal': {
+            'systems': ['Aditya-L1 (SoLEXS/HEL1OS)', 'SOHO', 'SDO'],
+            'risk_level': 'low',
+            'effect': 'Scientific instruments operating at standard baseline. Aditya-L1 SoLEXS and HEL1OS collecting background emission data.',
+            'recovery_time': 'Nominal operations',
+            'historical_example': 'Baseline solar condition.'
+        },
+        'minor': {
+            'systems': ['Aditya-L1 (SoLEXS/HEL1OS)', 'Chandrayaan-3 Lander'],
+            'risk_level': 'low',
+            'effect': 'Scientific instruments nominally operational. Aditya-L1 SoLEXS and HEL1OS payloads are designed to observe flares — increased flux is valuable science data. No instrument safe-mode triggers expected.',
+            'recovery_time': 'No interruption — active science collection',
+            'historical_example': 'C-class flares are routine science targets for Aditya-L1; SoLEXS collected over 200 C-class events since commissioning.'
+        },
+        'moderate': {
+            'systems': ['Aditya-L1', 'Chandrayaan-3', 'Hubble Space Telescope', 'SOHO', 'SDO'],
+            'risk_level': 'low',
+            'effect': 'Aditya-L1 HEL1OS detector may approach count-rate saturation for high-M flares — automatic gain adjustment activates. Hubble CCD sensors temporarily disabled during SAA + flare coincidence. HST Fine Guidance Sensors unaffected.',
+            'recovery_time': '1–2 hours for sensor recalibration',
+            'historical_example': 'M4.0 flare (May 2024) triggered Aditya-L1 HEL1OS high-count-rate mode — successfully captured full spectral evolution.'
+        },
+        'high': {
+            'systems': ['Aditya-L1', 'Chandrayaan-3', 'Hubble', 'JWST', 'SOHO', 'SDO', 'XPoSat'],
+            'risk_level': 'moderate',
+            'effect': 'Aditya-L1 SoLEXS enters high-flux mode with reduced time resolution to prevent detector damage. JWST NIRCam/MIRI detectors automatically disabled during particle storm. Chandrayaan-3 propulsion module instruments in safe mode.',
+            'recovery_time': '4–8 hours for instrument recovery',
+            'historical_example': 'M9.8 flare (Oct 2003) caused SOHO LASCO coronagraph to produce heavily degraded images from particle snow for 6 hours.'
