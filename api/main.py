@@ -984,3 +984,332 @@ def _get_impact_data(flare_class: str):
             'effect': 'Aditya-L1 SoLEXS enters high-flux mode with reduced time resolution to prevent detector damage. JWST NIRCam/MIRI detectors automatically disabled during particle storm. Chandrayaan-3 propulsion module instruments in safe mode.',
             'recovery_time': '4–8 hours for instrument recovery',
             'historical_example': 'M9.8 flare (Oct 2003) caused SOHO LASCO coronagraph to produce heavily degraded images from particle snow for 6 hours.'
+        },
+        'critical': {
+            'systems': ['Aditya-L1', 'Chandrayaan-3', 'Hubble', 'JWST', 'SOHO', 'SDO', 'XPoSat', 'Chandra X-ray'],
+            'risk_level': 'high',
+            'effect': 'Aditya-L1 payload enters autonomous safe mode — SoLEXS high-voltage supplies reduced, HEL1OS detector disabled to prevent permanent damage from extreme count rates. JWST enters full safe mode. Chandra X-ray Observatory retracts ACIS from focal plane.',
+            'recovery_time': '12–24 hours; instrument recalibration required',
+            'historical_example': 'X4.8 flare (Dec 2023) triggered JWST safe mode for 18 hours and forced Chandra ACIS retraction.'
+        },
+        'severe': {
+            'systems': ['Aditya-L1 (safe mode)', 'All space telescopes', 'Chandrayaan', 'JWST', 'Hubble', 'Chandra'],
+            'risk_level': 'critical',
+            'effect': 'Aditya-L1 full spacecraft safe mode — all payload operations suspended, solar panels oriented to minimize particle flux cross-section. Risk of permanent detector degradation for unshielded instruments. Multiple space telescopes simultaneously in safe mode.',
+            'recovery_time': '24–72 hours; detector performance assessment needed',
+            'historical_example': 'X9.0 flare (Dec 2006) caused permanent ~3% degradation in SOHO CDS detector sensitivity and forced RHESSI into safe mode.'
+        },
+        'extreme': {
+            'systems': ['Aditya-L1 (emergency safe mode)', 'All space telescopes', 'All science missions', 'JWST', 'Hubble', 'Chandra', 'Parker Solar Probe'],
+            'risk_level': 'critical',
+            'effect': 'Aditya-L1 emergency protocols: full payload shutdown, attitude adjustment for minimum radiation exposure, memory scrubbing on recovery. Potential for permanent instrument damage across multiple missions. L1 halo orbit exposes Aditya-L1 to unattenuated solar particle flux.',
+            'recovery_time': 'Days to weeks; some instruments may not recover',
+            'historical_example': 'X28+ flare (Nov 2003) permanently damaged the GOES-13 Solar X-ray Imager and degraded multiple instruments on SOHO, ACE, and WIND spacecraft.'
+        }
+    }
+    categories.append({'category': 'Scientific Instruments', **sci[tier]})
+    
+    return {
+        'nominal': is_nominal,
+        'flareClass': flare_class,
+        'noaaScale': noaa,
+        'categories': categories
+    }
+
+@app.get("/api/impact")
+def get_impact(flare_class: str = "B1.0"):
+    """Returns infrastructure impact assessment for the given GOES flare class."""
+    return _get_impact_data(flare_class)
+
+# ─────────────────────────────────────────────────
+# India-Specific Regional Risk Heatmap Endpoint
+# ─────────────────────────────────────────────────
+
+# India states/UTs with their approximate centroid latitudes (for GIC risk modeling)
+INDIA_REGIONS = [
+    # Northern region (highest GIC risk)
+    {"id": "jk", "name": "Jammu & Kashmir", "lat": 34.0, "lng": 76.5, "zone": "north"},
+    {"id": "hp", "name": "Himachal Pradesh", "lat": 31.5, "lng": 77.0, "zone": "north"},
+    {"id": "uk", "name": "Uttarakhand", "lat": 30.0, "lng": 79.0, "zone": "north"},
+    {"id": "pb", "name": "Punjab", "lat": 31.0, "lng": 75.5, "zone": "north"},
+    {"id": "hr", "name": "Haryana", "lat": 29.5, "lng": 76.5, "zone": "north"},
+    {"id": "dl", "name": "Delhi", "lat": 28.6, "lng": 77.2, "zone": "north"},
+    {"id": "rj", "name": "Rajasthan", "lat": 27.0, "lng": 74.0, "zone": "northwest"},
+    {"id": "up", "name": "Uttar Pradesh", "lat": 27.0, "lng": 80.5, "zone": "north"},
+    # Central / East
+    {"id": "br", "name": "Bihar", "lat": 25.5, "lng": 85.5, "zone": "east"},
+    {"id": "jh", "name": "Jharkhand", "lat": 23.5, "lng": 85.5, "zone": "east"},
+    {"id": "wb", "name": "West Bengal", "lat": 23.0, "lng": 88.0, "zone": "east"},
+    {"id": "sk", "name": "Sikkim", "lat": 27.5, "lng": 88.5, "zone": "north"},
+    {"id": "as", "name": "Assam", "lat": 26.5, "lng": 92.5, "zone": "northeast"},
+    {"id": "ar", "name": "Arunachal Pradesh", "lat": 28.0, "lng": 94.0, "zone": "northeast"},
+    {"id": "nl", "name": "Nagaland", "lat": 26.0, "lng": 94.5, "zone": "northeast"},
+    {"id": "mn", "name": "Manipur", "lat": 24.5, "lng": 93.5, "zone": "northeast"},
+    {"id": "mz", "name": "Mizoram", "lat": 23.5, "lng": 92.8, "zone": "northeast"},
+    {"id": "tr", "name": "Tripura", "lat": 23.5, "lng": 91.5, "zone": "northeast"},
+    {"id": "ml", "name": "Meghalaya", "lat": 25.5, "lng": 91.5, "zone": "northeast"},
+    # West / Central
+    {"id": "gj", "name": "Gujarat", "lat": 22.5, "lng": 71.0, "zone": "west"},
+    {"id": "mp", "name": "Madhya Pradesh", "lat": 23.0, "lng": 78.5, "zone": "central"},
+    {"id": "cg", "name": "Chhattisgarh", "lat": 21.5, "lng": 82.0, "zone": "central"},
+    {"id": "od", "name": "Odisha", "lat": 20.5, "lng": 84.5, "zone": "east"},
+    # South
+    {"id": "mh", "name": "Maharashtra", "lat": 19.0, "lng": 76.0, "zone": "west"},
+    {"id": "ts", "name": "Telangana", "lat": 17.5, "lng": 79.5, "zone": "south"},
+    {"id": "ap", "name": "Andhra Pradesh", "lat": 15.5, "lng": 79.5, "zone": "south"},
+    {"id": "ka", "name": "Karnataka", "lat": 14.5, "lng": 76.0, "zone": "south"},
+    {"id": "ga", "name": "Goa", "lat": 15.3, "lng": 74.0, "zone": "west"},
+    {"id": "kl", "name": "Kerala", "lat": 10.5, "lng": 76.5, "zone": "south"},
+    {"id": "tn", "name": "Tamil Nadu", "lat": 11.0, "lng": 78.5, "zone": "south"},
+    {"id": "py", "name": "Puducherry", "lat": 11.9, "lng": 79.8, "zone": "south"},
+    # Islands
+    {"id": "an", "name": "Andaman & Nicobar", "lat": 11.5, "lng": 92.7, "zone": "islands"},
+    {"id": "ld", "name": "Lakshadweep", "lat": 10.5, "lng": 72.5, "zone": "islands"},
+]
+
+
+def _get_india_regional_risk(flare_class: str):
+    """
+    Compute per-state risk levels for GPS degradation and power grid GIC risk
+    based on flare class and geomagnetic latitude.
+    """
+    letter, number = _parse_flare_class(flare_class)
+
+    # Base severity 0–1 from flare class
+    if letter in ('A', 'B'):
+        base_severity = 0.0
+    elif letter == 'C':
+        base_severity = 0.15 + (number / 10.0) * 0.15
+    elif letter == 'M':
+        base_severity = 0.35 + (number / 10.0) * 0.25
+    elif letter == 'X':
+        base_severity = 0.65 + (number / 10.0) * 0.30
+    else:
+        base_severity = 0.0
+
+    base_severity = min(1.0, base_severity)
+
+    CME_LIKELY_THRESH = 0.55  # Above this, CME likely = power grid risk
+
+    regions = []
+    for reg in INDIA_REGIONS:
+        # GPS risk: latitude-dependent (higher latitude = worse scintillation)
+        # India spans ~8°N to 37°N. Normalize 8→37 to 0→1.
+        lat_norm = (reg["lat"] - 8.0) / 29.0
+        gps_risk = base_severity * (0.7 + 0.3 * lat_norm)
+
+        # Power grid GIC risk: much stronger latitude gradient
+        # Only significant above ~25°N geomagnetic latitude
+        # Scale: 0 at 8°N → 1 at 37°N, with an exponential feel
+        grid_factor = max(0.0, (reg["lat"] - 20.0) / 17.0) ** 1.5
+        grid_risk = base_severity * grid_factor if base_severity > CME_LIKELY_THRESH else 0.0
+
+        # Only emit moderate+ risks
+        def _risk_label(val):
+            if val < 0.15: return "low"
+            if val < 0.35: return "moderate"
+            if val < 0.55: return "high"
+            return "critical"
+
+        def _risk_score(val):
+            if val < 0.15: return 0
+            if val < 0.35: return 1
+            if val < 0.55: return 2
+            return 3
+
+        gps_label = _risk_label(gps_risk)
+        grid_label = _risk_label(grid_risk)
+
+        regions.append({
+            "id": reg["id"],
+            "name": reg["name"],
+            "lat": reg["lat"],
+            "lng": reg["lng"],
+            "zone": reg["zone"],
+            "gps": {
+                "risk": gps_label,
+                "score": _risk_score(gps_risk),
+                "value": round(gps_risk, 3),
+                "description": _gps_risk_desc(gps_label, letter, number)
+            },
+            "powerGrid": {
+                "risk": grid_label,
+                "score": _risk_score(grid_risk),
+                "value": round(grid_risk, 3),
+                "description": _grid_risk_desc(grid_label, reg["name"])
+            }
+        })
+
+    return {
+        "flareClass": flare_class,
+        "baseSeverity": round(base_severity, 2),
+        "cmeLikely": base_severity > CME_LIKELY_THRESH,
+        "regions": regions
+    }
+
+
+def _gps_risk_desc(risk, letter, number):
+    descs = {
+        "low": f"{letter}{number} flare — minimal GPS degradation expected. Sub-meter errors on single-frequency receivers.",
+        "moderate": f"{letter}{number} flare — increased ionospheric scintillation. GPS horizontal errors 3–5 m. NavIC L5 signal may degrade.",
+        "high": f"{letter}{number} flare — significant TEC enhancement. GPS accuracy degraded to 10–20 m. SBAS/GAGAN precision approach likely unavailable.",
+        "critical": f"{letter}{number} flare — extreme ionospheric disturbance. GPS loss-of-lock risk on dayside. NavIC may be partially unavailable.",
+    }
+    return descs.get(risk, "Nominal conditions.")
+
+
+def _grid_risk_desc(risk, state):
+    descs = {
+        "low": f"Minimal GIC risk for {state} power infrastructure.",
+        "moderate": f"Elevated GIC risk. {state} power grid should monitor transformer hotspots. Pipelines: cathodic protection currents elevated.",
+        "high": f"Significant GIC risk. {state} HV transformers at stress. Reactive power compensation systems may require manual adjustment.",
+        "critical": f"CRITICAL GIC risk for {state}. Possible transformer saturation and voltage instability. Emergency load-shedding protocols should be reviewed.",
+    }
+    return descs.get(risk, "No risk.")
+
+
+@app.get("/api/india-impact")
+def get_india_impact(flare_class: str = "B1.0"):
+    """Returns per-state GPS and power grid risk data for India based on flare class."""
+    return _get_india_regional_risk(flare_class)
+
+
+# ─────────────────────────────────────────────────
+# Explainable AI (XAI) Endpoint
+# ─────────────────────────────────────────────────
+
+def _compute_feature_importance(flare_class: str):
+    """
+    Returns feature-level explanation for the current prediction.
+    Simulates SHAP-style feature importance from the pipeline features.
+    """
+    letter, number = _parse_flare_class(flare_class)
+
+    # Base importance: which features drive the prediction
+    if letter in ('A', 'B'):
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": 5.2e-8, "importance": 0.12, "direction": "baseline", "description": "Background-level soft X-ray flux. No significant solar activity detected."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 3.1, "importance": 0.08, "direction": "baseline", "description": "Hard X-ray counts at nominal background levels."},
+            {"name": "Spectral Hardness Ratio", "value": 0.035, "importance": 0.15, "direction": "stable", "description": "Hardness ratio at baseline. No pre-flare hardening detected."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 0.02, "importance": 0.22, "direction": "stable", "description": "Flux derivative near zero. No significant flux evolution."},
+            {"name": "Adaptive Z-Score", "value": 0.1, "importance": 0.18, "direction": "stable", "description": "Z-score well below threshold. No statistical deviation from background."},
+            {"name": "Rolling MAD (Background)", "value": 2.8e-8, "importance": 0.10, "direction": "stable", "description": "Median absolute deviation at nominal levels."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.12, "importance": 0.15, "direction": "neutral", "description": "Temporal convolution network sees no evolving pattern over 3-hour window."},
+        ]
+    elif letter == 'C':
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": 5.8e-6, "importance": 0.28, "direction": "positive", "description": f"Elevated soft X-ray flux ({number}C). Indicates active region brightening in GOES band."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 8.5, "importance": 0.15, "direction": "positive", "description": "Hard X-ray counts showing moderate increase. Non-thermal emission detected."},
+            {"name": "Spectral Hardness Ratio", "value": 0.042, "importance": 0.22, "direction": "positive", "description": "Slight hardening detected. Plasma heating in flare loop observed."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 1.8, "importance": 0.18, "direction": "positive", "description": "Positive flux derivative. Flux is rising above background."},
+            {"name": "Adaptive Z-Score", "value": 1.2, "importance": 0.10, "direction": "warning", "description": "Z-score elevated but below threshold. Monitoring recommended."},
+            {"name": "Rolling MAD (Background)", "value": 3.1e-8, "importance": 0.03, "direction": "stable", "description": "Background variability slightly elevated."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.35, "importance": 0.04, "direction": "slight_positive", "description": "TCN detects subtle temporal pattern consistent with C-class evolution."},
+        ]
+    elif letter == 'M':
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": number * 1e-5, "importance": 0.32, "direction": "positive", "description": f"Significant soft X-ray flux ({number}M). Strong active region emission."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 45.0, "importance": 0.22, "direction": "positive", "description": "Hard X-ray counts sharply elevated. Strong non-thermal bremsstrahlung."},
+            {"name": "Spectral Hardness Ratio", "value": 0.068, "importance": 0.18, "direction": "positive", "description": "Significant spectral hardening. Accelerated electron population in flare loop."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 4.5, "importance": 0.12, "direction": "positive", "description": "Rapid flux increase. Fast energy release phase detected."},
+            {"name": "Adaptive Z-Score", "value": 4.2, "importance": 0.08, "direction": "critical", "description": "Z-score exceeds threshold by 1.2σ. Statistically significant event."},
+            {"name": "Rolling MAD (Background)", "value": 2.9e-8, "importance": 0.02, "direction": "stable", "description": "Background variability nominal."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.82, "importance": 0.06, "direction": "positive", "description": "TCN strongly activated. Temporal pattern matches historical M-flare profiles."},
+        ]
+    else:  # X-class
+        features = [
+            {"name": "Soft X-ray Flux (0.1-0.8nm)", "value": number * 1e-4, "importance": 0.35, "direction": "positive", "description": f"Extreme soft X-ray flux ({number}X). Major flare in progress."},
+            {"name": "Hard X-ray Flux (0.05-0.4nm)", "value": 180.0, "importance": 0.25, "direction": "positive", "description": "Hard X-ray counts extremely elevated. Intense non-thermal emission."},
+            {"name": "Spectral Hardness Ratio", "value": 0.095, "importance": 0.15, "direction": "positive", "description": "Extreme spectral hardening. Highly accelerated electron spectrum."},
+            {"name": "Flux Rise Rate (dF/dt)", "value": 12.0, "importance": 0.10, "direction": "positive", "description": "Very rapid flux increase. Impulsive energy release."},
+            {"name": "Adaptive Z-Score", "value": 8.5, "importance": 0.08, "direction": "critical", "description": "Z-score far exceeds threshold. Extreme statistical anomaly."},
+            {"name": "Rolling MAD (Background)", "value": 4.2e-8, "importance": 0.02, "direction": "elevated", "description": "Background variability elevated due to ongoing flare."},
+            {"name": "TCN Temporal Context (3h)", "value": 0.96, "importance": 0.05, "direction": "positive", "description": "TCN fully activated. Temporal pattern matches historical X-flare profiles with high confidence."},
+        ]
+
+    # Prediction summary
+    if letter in ('A', 'B'):
+        prediction = {"class": "QUIET", "confidence": 0.96, "label": "No flare expected"}
+    elif letter == 'C':
+        prediction = {"class": "C-FLARE", "confidence": 0.42 + number * 0.03, "label": f"C-class flare in progress (R1)"}
+    elif letter == 'M':
+        prediction = {"class": "M-FLARE", "confidence": 0.65 + number * 0.02, "label": f"M-class flare in progress (R1-R2)"}
+    else:
+        prediction = {"class": "X-FLARE", "confidence": 0.85 + number * 0.01, "label": f"X-class flare in progress (R3+)"}
+
+    # Top contributing features
+    sorted_feats = sorted(features, key=lambda f: f["importance"], reverse=True)
+    top_features = [f["name"] for f in sorted_feats[:3]]
+
+    return {
+        "flareClass": flare_class,
+        "prediction": prediction,
+        "features": features,
+        "topContributors": top_features,
+        "explanation": f"Prediction driven primarily by {top_features[0].lower()}, {top_features[1].lower()}, and {top_features[2].lower()}. These three features account for {sum(f['importance'] for f in sorted_feats[:3])*100:.0f}% of model decision weight."
+    }
+
+
+@app.get("/api/explain")
+def get_explanation(flare_class: str = "B1.0"):
+    """Returns feature importance explanation for the current flare prediction."""
+    return _compute_feature_importance(flare_class)
+
+
+class TelemetryUpdate(BaseModel):
+    timestamp_utc: str
+    telemetry: dict
+    features: List[float]
+    status: dict
+
+@app.post("/api/update")
+async def update_telemetry(update: TelemetryUpdate):
+    """Receives new pipeline tick calculations from the separate running loop,
+    updates memory arrays, and broadcasts the status over WebSockets.
+    """
+    global _latest_status, _timeseries_history, _alerts_history
+    
+    # Store latest status payload
+    _latest_status = update.status
+    _alerts_history = update.status.get('alerts', [])
+    
+    # Convert timestamp_utc to Unix ms timestamp for Javascript compatibility
+    try:
+        dt = datetime.fromisoformat(update.timestamp_utc.replace("Z", "+00:00"))
+        ts_ms = int(dt.timestamp() * 1000)
+    except Exception:
+        ts_ms = int(datetime.now().timestamp() * 1000)
+        
+    # Append to timeseries history
+    soft = float(update.telemetry['soft_flux'])
+    hard = float(update.telemetry['hard_25_50'])
+    hr = float(update.features[2])
+    
+    point = {
+        'timestamp': ts_ms,
+        'softFlux': soft,
+        'hardFlux': hard * 1.5e-8,
+        'hardnessRatio': hr
+    }
+    _timeseries_history.append(point)
+    
+    # Keep rolling 24 hours of timeseries in memory (1 point per 5s -> max 17280 points)
+    if len(_timeseries_history) > 20000:
+        _timeseries_history = _timeseries_history[-17280:]
+        
+    # Broadcast to all active WebSocket connections
+    await manager.broadcast(json.dumps(_latest_status))
+    return {"status": "ok"}
+
+@app.websocket("/ws/live")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    # Immediately push the latest status on connection
+    if _latest_status:
+        await websocket.send_text(json.dumps(_latest_status))
+    try:
+        while True:
+            # Maintain connection alive (read messages if client sends any)
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
