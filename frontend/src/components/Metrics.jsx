@@ -158,3 +158,43 @@ export default function Metrics() {
               <div className="bg-green-500/10 border border-green-500/30 rounded p-2.5 text-center">
                 <div className="text-lg font-black text-green-400">{m.tp}</div>
                 <div className="text-[8px] text-[#566176] font-bold uppercase mt-0.5">True Positive (TP)</div>
+              </div>
+              <div className="bg-red-500/10 border border-red-500/30 rounded p-2.5 text-center">
+                <div className="text-lg font-black text-red-500">{m.fn}</div>
+                <div className="text-[8px] text-[#566176] font-bold uppercase mt-0.5">False Negative (FN)</div>
+              </div>
+
+              <div className="text-[#8B949E] font-bold flex items-center pr-2">ACTUAL -</div>
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2.5 text-center">
+                <div className="text-lg font-black text-yellow-500">{m.fp}</div>
+                <div className="text-[8px] text-[#566176] font-bold uppercase mt-0.5">False Positive (FP)</div>
+              </div>
+              <div className="bg-[#0D1117]/60 border border-[#30363D] rounded p-2.5 text-center">
+                <div className="text-lg font-black text-[#E6EDF3]">{m.tn}</div>
+                <div className="text-[8px] text-[#566176] font-bold uppercase mt-0.5">True Negative (TN)</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="dash-card p-5 flex flex-col justify-between items-center text-center">
+            <div className="dash-card-header-left mb-4 w-full">
+              <div className="dash-card-bar" style={{ background: '#38BDF8' }} />
+              <span className="dash-card-title">Skill Score (HSS)</span>
+            </div>
+            <div className="my-auto py-4 space-y-2">
+              <div className="text-4xl font-black font-mono text-blue-400">
+                {m.skill.toFixed(2)}
+              </div>
+              <div className="text-[10px] text-[#8B949E] font-mono leading-relaxed px-2">
+                Heidke Skill Score vs random chance background noise. Demonstrates high predictive skill.
+              </div>
+            </div>
+            <div className="text-[8px] bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2 py-0.5 rounded font-mono font-bold uppercase">
+              Validated
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
