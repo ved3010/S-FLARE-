@@ -498,3 +498,82 @@ export default function IndiaImpactMap() {
           {showIsro && (
             <span className="text-[6px] font-mono text-white/15">{ISRO_STATIONS.length} ISRO stations mapped</span>
           )}
+        </div>
+      </div>
+
+      {/* ── Regional Diagnostics Sidebar ── */}
+      <div className="lg:col-span-2 bg-white/[0.015] border border-white/[0.04] rounded-xl p-4 flex flex-col justify-between h-full animate-fadeInUp">
+        <div className="space-y-4">
+          <div className="text-[10px] font-mono font-bold text-white/80 border-b border-white/[0.06] pb-1.5 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-pulse" />
+              <span>ISRO Regional Diagnostics</span>
+            </span>
+            <span className="text-[7.5px] font-mono text-white/30 uppercase tracking-wider">NavIC & GAGAN monitoring</span>
+          </div>
+
+          {/* Regional Risk summary */}
+          <div className="grid grid-cols-2 gap-3 bg-white/[0.01] rounded-lg p-2.5 border border-white/[0.02]">
+            <div>
+              <span className="text-[7.5px] font-mono text-white/35 block uppercase tracking-wider">Avg Scintillation</span>
+              <span className="text-[11px] font-mono font-black text-[#38BDF8] block mt-0.5">
+                {(0.02 + baseSeverity * riskAtHour(1.0, forecastHour) * 0.95).toFixed(2)} S4
+              </span>
+            </div>
+            <div>
+              <span className="text-[7.5px] font-mono text-white/35 block uppercase tracking-wider">Induced Current (GIC)</span>
+              <span className="text-[11px] font-mono font-black text-[#34D399] block mt-0.5">
+                {(0.1 + baseSeverity * riskAtHour(1.0, forecastHour) * 79.9).toFixed(1)} A
+              </span>
+            </div>
+          </div>
+
+          {/* Scrollable list of ground tracking stations */}
+          <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1 select-none custom-scrollbar">
+            {ISRO_STATIONS.map((st) => {
+              const status = getStationStatus(st);
+              const isSelected = hoveredStation?.id === st.id;
+              return (
+                <div
+                  key={st.id}
+                  className="flex items-center justify-between p-2 rounded-lg border transition-all duration-200"
+                  style={{
+                    background: isSelected ? 'rgba(56,189,248,0.04)' : 'rgba(255,255,255,0.01)',
+                    borderColor: isSelected ? 'rgba(56,189,248,0.25)' : 'rgba(255,255,255,0.03)',
+                  }}
+                  onMouseEnter={() => setHoveredStation(st)}
+                  onMouseLeave={() => setHoveredStation(null)}
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="text-[8px] mt-0.5" style={{ color: status.statusColor }}>{st.icon}</span>
+                    <div>
+                      <h5 className="text-[9px] font-bold text-white/80">{st.city}</h5>
+                      <span className="text-[7px] font-mono text-white/25 block">{st.type}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className="text-[6.5px] font-mono font-bold px-1.5 py-0.5 rounded tracking-wider uppercase inline-block mb-1"
+                      style={{ background: status.bg, color: status.statusColor }}
+                    >
+                      {status.statusText}
+                    </span>
+                    <div className="text-[7px] font-mono text-white/30 space-x-1.5">
+                      <span>S4: <span className="text-white/60 font-semibold">{status.s4.toFixed(2)}</span></span>
+                      <span>GIC: <span className="text-white/60 font-semibold">{status.gic.toFixed(0)}A</span></span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Diagnostic info footer */}
+        <p className="text-[8px] font-mono text-white/30 leading-relaxed border-t border-white/[0.04] pt-2.5 mt-3">
+          📊 <strong>Ionospheric Ionization Alert Thresholds:</strong> GAGAN APV receivers enter warning alert when regional L-band scintillation index exceeds 0.45 S4.
+        </p>
+      </div>
+    </div>
+  );
+}
