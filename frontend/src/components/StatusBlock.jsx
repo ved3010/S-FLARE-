@@ -128,3 +128,37 @@ export default function StatusBlock() {
           <div className="mt-2.5">
             <div className="h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/[0.08]">
               <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${f2.probability}%`,
+                  background: f2.statusColor || '#E74C3C',
+                  boxShadow: `0 0 10px ${f2.statusColor || '#E74C3C'}`
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="mt-2 flex justify-between font-mono text-[8.5px] text-white/40">
+            <span>PREDICTED TIME: <strong className="text-white/80">{f2.targetTime !== '—' ? f2.targetTime.slice(11, 19) : '+2 Min'}</strong></span>
+            <span>CONF: <strong className="text-emerald-400">{(f2.confidence * 100).toFixed(0)}%</strong></span>
+          </div>
+        </div>
+
+        {/* Footer info */}
+        <div className="mt-auto space-y-1.5 font-mono text-[8.5px] text-white/40 pt-1 border-t border-white/[0.05]">
+          <div className="flex justify-between items-center">
+            <span>DATA SOURCE:</span>
+            <span className={`font-bold ${systemStatus.dataSource?.includes('NOAA') ? 'text-amber-400' : 'text-orange-400'}`}>
+              {systemStatus.dataSource || 'Aditya-L1 (SoLEXS+HEL1OS)'}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span>ACTIVE MODEL:</span>
+            <span className="text-sky-400 font-bold">{systemStatus.modelVersion || 'Random Forest (Aditya-L1)'}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
