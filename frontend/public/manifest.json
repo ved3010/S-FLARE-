@@ -1,0 +1,19 @@
+{
+  "name": "SolFlare — Solar Flare Monitor",
+  "short_name": "SolFlare",
+  "description": "Real-time solar flare detection and forecasting using Aditya-L1 SoLEXS + HEL1OS X-ray instruments. India-specific impact assessment.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "any",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
