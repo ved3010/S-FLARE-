@@ -428,3 +428,56 @@ export async function fetchActualVsPredicted() {
 
 export async function fetchModelComparison() {
   try {
+    const res = await fetch('/api/models/comparison');
+    if (res.ok) {
+      const data = await res.json();
+      updateState({ modelsComparison: data });
+      return data;
+    }
+  } catch (e) {
+    console.warn("Could not fetch model comparison:", e);
+  }
+  return [];
+}
+
+export async function selectActiveModel(modelName) {
+  try {
+    const res = await fetch('/api/models/select', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modelName })
+    });
+    if (res.ok) {
+      updateState({ activeModelName: modelName });
+      fetchModelComparison();
+      return true;
+    }
+  } catch (e) {
+    console.error("Failed to select active model:", e);
+  }
+  return false;
+}
+
+export async function controlSimulation(action, speed = 1.0) {
+  try {
+    const res = await fetch('/api/simulation/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, speed })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      updateState({
+        systemStatus: {
+          ...state.systemStatus,
+          simState: action === 'pause' ? 'PAUSED' : 'RUNNING',
+          simSpeed: speed
+        }
+      });
+      return data;
+    }
+  } catch (e) {
+    console.error("Failed to control simulation:", e);
+  }
+  return null;
+}
