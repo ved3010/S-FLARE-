@@ -178,3 +178,49 @@ export default function Replay({ event }) {
           <div className="dash-card-body !p-4 text-center">
             <div className="text-[9px] uppercase tracking-wider font-semibold font-mono text-[#8B949E] mb-1">HEL1OS (Hard X-Ray)</div>
             <div className="text-xl font-bold font-mono text-[#3498DB]">{fmtFlux(hard)}</div>
+            <div className="text-[8px] text-[#566176] font-mono mt-1">W/m² equivalent</div>
+          </div>
+          <div className="dash-card-body !p-4 text-center">
+            <div className="text-[9px] uppercase tracking-wider font-semibold font-mono text-[#8B949E] mb-1">Hardness Ratio</div>
+            <div className={`text-xl font-bold font-mono ${hr > 0.06 ? 'text-orange-400' : 'text-[#8B949E]'}`}>
+              {hr.toFixed(4)}
+            </div>
+            <div className="text-[8px] text-[#566176] font-mono mt-1">HEL1OS / SoLEXS</div>
+          </div>
+        </div>
+
+        {/* Model State Simulator readout */}
+        {activePoint && activePoint.status && (
+          <div className="dash-card-body !p-4 font-mono text-[10px] space-y-2">
+            <div className="text-[9px] uppercase font-bold text-white/80 border-b border-[#30363D]/40 pb-1">
+              Pipeline Neural Inferences:
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[#8B949E]">
+              <div>NOWCAST STATE: <span className="text-red-500 font-bold block">{activePoint.status.systemStatus.stateLabel} ({activePoint.status.nowcast.class})</span></div>
+              <div>FORECAST PROBABILITY: <span className="text-[#3498DB] font-bold block">{activePoint.status.forecast.probability}%</span></div>
+              <div>ONSET DETECTED: <span className="text-[#E6EDF3] block">{activePoint.status.nowcast.currentPhase}</span></div>
+              <div>Z-SCORE VALUE: <span className="text-[#E6EDF3] block">{activePoint.status.nowcast.zScore.toFixed(2)}σ</span></div>
+            </div>
+            {activePoint.status.hardnessRatio.preFlareSignal && (
+              <div className="bg-white/10 text-white border border-white/20 px-2 py-1 rounded text-[9px] font-bold animate-pulse text-center">
+                ⚠️ SPECTRAL HARDENING DETECTED: PRE-FLARE WARNING FIRED (+{activePoint.status.hardnessRatio.minutesEarly} MINUTES ADVANCE WARNING)
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Cataloged Event Details */}
+        {event && (
+          <div className="border-t border-[#30363D]/40 pt-3 text-[9px] font-mono text-[#566176] flex flex-wrap gap-x-6 gap-y-1">
+            <div>EVENT ID: <span className="text-[#8B949E]">{event.id}</span></div>
+            <div>PEAK FLUX: <span className="text-[#8B949E]">{event.peak.toExponential(1)} W/m²</span></div>
+            <div>GOES LEAD TIME: <span className="text-white font-bold">+{event.lead} MIN</span></div>
+            <div>INSTRUMENT COMBINATION: <span className="text-[#8B949E]">{event.instrument || event.instr}</span></div>
+            <div>STORM DURATION: <span className="text-[#8B949E]">{event.duration || event.dur}</span></div>
+            <div>DETECTION CONFIDENCE: <span className="text-green-400 font-bold">{event.conf}%</span></div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
