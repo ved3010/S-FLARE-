@@ -498,3 +498,99 @@ export default function ImpactPanel() {
                 />
               </div>
 
+              {/* Historical Example */}
+              <p className="text-[9px] italic text-white/25 leading-relaxed mt-1">📖 {cat.historical_example}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── India Impact Map + XAI Row ── */}
+      <div className="mt-6 dash-card animate-fadeInUp">
+        <div className="dash-card-header">
+          <div className="dash-card-header-left">
+            <div className="dash-card-bar" style={{ background: 'linear-gradient(180deg, #F87171, #FBBF24)' }} />
+            <span className="dash-card-title">India Regional Risk Map</span>
+            <span className="dash-card-sub">GPS & Power Grid</span>
+          </div>
+        </div>
+        <div className="dash-card-body" style={{ padding: '12px 16px 16px' }}>
+          <IndiaImpactMap />
+        </div>
+      </div>
+
+      {/* ── XAI Section ── */}
+      <div className="mt-6 dash-card animate-fadeInUp">
+        <div className="dash-card-header">
+          <div className="dash-card-header-left">
+            <div className="dash-card-bar" style={{ background: 'linear-gradient(180deg, #A78BFA, #38BDF8)' }} />
+            <span className="dash-card-title">Explainable AI</span>
+            <span className="dash-card-sub">Model Decision Analysis</span>
+          </div>
+        </div>
+        <div className="dash-card-body" style={{ padding: '16px' }}>
+          <ModelExplanation />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Compact Impact Strip for Dashboard ─────────────────
+
+export function ImpactStrip({ onNavigate }) {
+  const { flareClass } = useLiveState();
+  const [impactData, setImpactData] = useState(null);
+  const lastFetchedClass = useRef(null);
+
+  useEffect(() => {
+    if (!flareClass || flareClass === lastFetchedClass.current) return;
+    const letter = flareClass.charAt(0).toUpperCase();
+    if (letter === 'A' || letter === 'B') {
+      setImpactData(null);
+      lastFetchedClass.current = flareClass;
+      return;
+    }
+    fetch(`/api/impact?flare_class=${encodeURIComponent(flareClass)}`)
+      .then(r => r.json())
+      .then(data => {
+        setImpactData(data);
+        lastFetchedClass.current = flareClass;
+      })
+      .catch(() => {});
+  }, [flareClass]);
+
+  if (!impactData || impactData.nominal) return null;
+
+  const riskOrder = { critical: 0, high: 1, moderate: 2, low: 3 };
+  const top3 = [...(impactData.categories || [])]
+    .sort((a, b) => (riskOrder[a.risk_level] ?? 4) - (riskOrder[b.risk_level] ?? 4))
+    .slice(0, 3);
+
+  if (top3.length === 0) return null;
+
+  return (
+    <div className="impact-strip" onClick={() => onNavigate?.('impact')}>
+      <div className="impact-strip-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round">
+          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+        </svg>
+        <span>IMPACT</span>
+      </div>
+      <div className="impact-strip-items">
+        {top3.map((cat) => {
+          const risk = RISK_COLORS[cat.risk_level] || RISK_COLORS.low;
+          return (
+            <div key={cat.category} className="impact-strip-item">
+              <span className="impact-strip-cat">{cat.category}</span>
+              <span className="impact-strip-badge" style={{ background: risk.bg, color: risk.text, borderColor: risk.border }}>
+                {risk.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <span className="impact-strip-arrow">→ VIEW ALL</span>
+    </div>
+  );
+}
