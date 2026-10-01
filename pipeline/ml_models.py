@@ -178,3 +178,32 @@ class ModelManager:
             "type": mtype,
             "horizon": f"+{horizon} min",
             "accuracy": round(acc * 100, 1),
+            "precision": round(prec * 100, 1),
+            "recall": round(rec * 100, 1),
+            "f1Score": round(f1 * 100, 1),
+            "rocAuc": round(auc, 3),
+            "active": is_active or (name == self.active_model_name),
+            "confusionMatrix": {"tp": int(tp), "fp": int(fp), "tn": int(tn), "fn": int(fn)}
+        }
+
+    def get_comparison(self) -> List[Dict[str, Any]]:
+        comparison = []
+        for name, mdict in self.metrics.items():
+            item = mdict.copy()
+            item["active"] = (name == self.active_model_name)
+            comparison.append(item)
+        return comparison
+
+    def get_explainability(self) -> List[Dict[str, Any]]:
+        return self.feature_importances
+
+    def set_active_model(self, name: str) -> bool:
+        if name in self.metrics:
+            self.active_model_name = name
+            return True
+        return False
+
+
+# Global instance
+model_manager = ModelManager()
+
