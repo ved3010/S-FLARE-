@@ -108,3 +108,15 @@ def run_backtest():
         },
         'skillScore': 0.73,
         'totalEvents': 50,
+        'testPeriod': f'{datetime.now().strftime("%b")} {datetime.now().year} (Aditya-L1)'
+    }
+    
+    os.makedirs("data/processed", exist_ok=True)
+    with open("data/processed/backtest_results.json", "w") as f:
+        json.dump(report, f, indent=2)
+        
+    print(f"Backtest successfully evaluated: POD={pod:.2f}, FAR={far:.2f}, CSI={csi:.2f}, Mean Lead Time={mean_lead:.1f} min.")
+    print("Report written to data/processed/backtest_results.json")
+
+if __name__ == "__main__":
+    run_backtest()
