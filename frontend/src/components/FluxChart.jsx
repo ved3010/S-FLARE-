@@ -162,3 +162,167 @@ export default function FluxChart({ data, range, onRange }) {
               stroke={t.color} strokeWidth={t.label === 'M' || t.label === 'X' ? (isFs ? 1 : 0.7) : 0.3}
               opacity={t.label === 'M' || t.label === 'X' ? 0.5 : 0.15}
               strokeDasharray={t.label === 'M' || t.label === 'X' ? 'none' : '2,4'}
+            />
+            <text x={pad.l - 6} y={t.y + (isFs ? 5 : 3)} textAnchor="end" fill={t.color}
+              fontSize={isFs ? 12 : 8} fontWeight="bold" fontFamily="monospace" opacity={t.label === 'M' || t.label === 'X' ? 0.8 : 0.3}>
+              {t.label}
+            </text>
+          </g>
+        ))}
+
+        {/* Y-axis labels */}
+        {yLabels.map((val, i) => (
+          <text key={`yl-${i}`} x={pad.l - (isFs ? 10 : 8)} y={scales.y(val) + (isFs ? 4 : 3)}
+            textAnchor="end" fill="#566176" fontSize={isFs ? 11 : 7} fontFamily="monospace">
+            {yLabelTexts[i]}
+          </text>
+        ))}
+
+        {/* Vertical grid */}
+        {xtickVals.map((t, i) => (
+          <line key={`v-${i}`} x1={t.x} y1={pad.t} x2={t.x} y2={ch - pad.b}
+            stroke="rgba(255,255,255,0.04)" strokeWidth={isFs ? 0.6 : 0.5} strokeDasharray="3,4" />
+        ))}
+
+        {/* Axes */}
+        <line x1={pad.l} y1={pad.t} x2={pad.l} y2={ch - pad.b} stroke="rgba(255,255,255,0.1)" strokeWidth={isFs ? 1.2 : 1} />
+        <line x1={pad.l} y1={ch - pad.b} x2={cw - pad.r} y2={ch - pad.b} stroke="rgba(255,255,255,0.1)" strokeWidth={isFs ? 1.2 : 1} />
+
+        {/* X tick labels */}
+        {xtickVals.map((t, i) => (
+          <text key={i} x={t.x} y={ch - pad.b + (isFs ? 20 : 14)}
+            textAnchor="middle" fill="#566176" fontSize={isFs ? 10 : 7} fontFamily="monospace">
+            {t.label}
+          </text>
+        ))}
+
+        {/* Data */}
+        <path d={softArea} fill={`url(#softGrad${isFs ? 'Fs' : ''})`} />
+        <path d={hardArea} fill={`url(#hardGrad${isFs ? 'Fs' : ''})`} />
+        <path d={softLine} fill="none" stroke="#E67E22" strokeWidth={isFs ? 2.5 : 1.5}
+          filter={`url(#softGlow${isFs ? 'Fs' : ''})`} />
+        <path d={hardLine} fill="none" stroke="#3498DB" strokeWidth={isFs ? 2 : 1.0}
+          filter={`url(#hardGlow${isFs ? 'Fs' : ''})`} />
+
+        {/* Hover */}
+        {closestPoint && (
+          <g>
+            <line x1={scales.x(closestPoint.timestamp)} y1={pad.t} x2={scales.x(closestPoint.timestamp)} y2={ch - pad.b}
+              stroke="rgba(255,255,255,0.2)" strokeWidth={isFs ? 1 : 0.5} strokeDasharray="2,3" />
+            <circle cx={scales.x(closestPoint.timestamp)} cy={scales.y(closestPoint.softFlux)}
+              r={isFs ? 6 : 4} fill="#E67E22" stroke="#fff" strokeWidth={isFs ? 2.5 : 1.5}>
+              <animate attributeName="r" values={isFs ? "5;8;5" : "3;5;3"} dur="2s" repeatCount="indefinite" />
+            </circle>
+            <circle cx={scales.x(closestPoint.timestamp)} cy={scales.y(closestPoint.hardFlux)}
+              r={isFs ? 5.5 : 3.5} fill="#3498DB" stroke="#fff" strokeWidth={isFs ? 2.5 : 1.5} />
+          </g>
+        )}
+
+        {/* Interactive overlay */}
+        <rect
+          x={pad.l} y={pad.t} width={cw - pad.l - pad.r} height={ch - pad.t - pad.b}
+          fill="transparent"
+          onMouseMove={e => handleMouseMove(e, scales)}
+          onMouseLeave={() => setHover(null)}
+        />
+      </svg>
+    );
+  };
+
+  // ── Tooltip ──────────────────────────────────────────────────
+
+  const renderTooltip = () => {
+    if (!closestPoint || !scales) return null;
+    const fs = isFs;
+
+    const getGoesClass = (flux) => {
+      if (flux >= 1e-4) return `X${(flux * 1e4).toFixed(1)}`;
+      if (flux >= 1e-5) return `M${(flux * 1e5).toFixed(1)}`;
+      if (flux >= 1e-6) return `C${(flux * 1e6).toFixed(1)}`;
+      if (flux >= 1e-7) return `B${(flux * 1e7).toFixed(1)}`;
+      return `A${(flux * 1e8).toFixed(1)}`;
+    };
+
+    return (
+      <div
+        className={`font-mono select-none ${
+          fs
+            ? 'absolute bottom-6 left-6 bg-[#0D1117]/95 backdrop-blur-xl border border-[rgba(255,255,255,0.1)] px-5 py-4 rounded-xl shadow-2xl text-sm space-y-2 min-w-[260px]'
+            : 'absolute top-2 left-2 sm:top-3 sm:left-4 bg-[#0D1117]/90 backdrop-blur-md border border-[rgba(255,255,255,0.08)] px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-2xl text-[9px] sm:text-[10px] space-y-1 max-w-[200px] sm:max-w-none'
+        }`}
+        style={{ zIndex: 30 }}
+      >
+        {/* Timestamp */}
+        <div className={`${fs ? 'text-base' : 'text-[10px] sm:text-xs'} text-white border-b border-[rgba(255,255,255,0.06)] pb-1.5 mb-1.5 font-bold text-center`}>
+          {formatUTC(closestPoint.timestamp)}
+        </div>
+
+        {/* Soft X-Ray */}
+        <div className={`flex justify-between items-center ${fs ? 'gap-8' : 'gap-3 sm:gap-6'}`}>
+          <span className={fs ? 'text-[#566176] text-xs' : 'text-[#566176]'}>SOFT X-RAY:</span>
+          <span className={`text-[#E67E22] font-bold ${fs ? 'text-sm' : ''}`}>
+            {closestPoint.softFlux.toExponential(fs ? 2 : 1)}
+            <span className="text-[#566176] ml-1">({getGoesClass(closestPoint.softFlux)})</span>
+          </span>
+        </div>
+
+        {/* Hard X-Ray */}
+        <div className={`flex justify-between items-center ${fs ? 'gap-8' : 'gap-3 sm:gap-6'}`}>
+          <span className={fs ? 'text-[#566176] text-xs' : 'text-[#566176]'}>HARD X-RAY:</span>
+          <span className={`text-[#3498DB] font-bold ${fs ? 'text-sm' : ''}`}>
+            {closestPoint.hardFlux.toExponential(fs ? 2 : 1)}
+          </span>
+        </div>
+
+        {/* Hardness Ratio */}
+        <div className={`flex justify-between items-center border-t border-[rgba(255,255,255,0.06)] ${fs ? 'pt-2 mt-2' : 'pt-1 mt-1'}`}>
+          <span className={fs ? 'text-[#566176] text-xs' : 'text-[#566176]'}>HARDNESS:</span>
+          <span className={`text-green-400 font-bold ${fs ? 'text-sm' : ''}`}>
+            {closestPoint.hardnessRatio.toFixed(fs ? 4 : 3)}
+          </span>
+        </div>
+
+        {/* Extra details in fullscreen */}
+        {fs && (
+          <>
+            <div className="flex justify-between items-center pt-1">
+              <span className="text-[#566176] text-xs">FLUX RATIO:</span>
+              <span className="text-[#8B949E] text-xs font-mono">
+                {((closestPoint.hardFlux || 0) / Math.max(closestPoint.softFlux, 1e-12)).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[#566176] text-xs">GOES CLASS:</span>
+              <span className="text-[#E6EDF3] font-bold text-sm">
+                {getGoesClass(closestPoint.softFlux)}
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // ── Loading state ──────────────────────────────────────────────
+  if (!scales || !filtered.length) {
+    return (
+      <div 
+        className="h-full flex flex-col justify-center items-center p-6 text-center select-none"
+        style={{ overflow: 'hidden', position: 'relative' }}
+      >
+        <div className="w-10 h-10 rounded-full border-2 border-[#30363D] border-t-[#E67E22] animate-spin mb-3" />
+        <span className="text-[#8B949E] text-xs font-mono tracking-wider uppercase">Telemetry Initializing</span>
+        <span className="text-[#566176] text-[10px] font-mono mt-1">Waiting for data stream...</span>
+      </div>
+    );
+  }
+
+  // ── Fullscreen overlay (rendered via portal) ──────────────────
+
+  const fullscreenOverlay = isFs ? createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0D1117]/90 backdrop-blur-xl"
+      style={{ animation: 'fadeIn 0.2s ease-out' }}
+      onClick={() => setFullscreen(false)}
+    >
+      <div
