@@ -98,3 +98,15 @@ class TestSolarFlarePipeline(unittest.TestCase):
         mm = ModelManager()
         comparison = mm.get_comparison()
         self.assertGreater(len(comparison), 0)
+        
+        # Verify both +1min and +2min horizons are present in comparative evaluation
+        horizons = [item.get('horizon') for item in comparison]
+        self.assertTrue(any('+1 min' in h for h in horizons if h))
+        self.assertTrue(any('+2 min' in h for h in horizons if h))
+
+        # Check model selection
+        self.assertTrue(mm.set_active_model("Random Forest (+1min)"))
+        self.assertEqual(mm.active_model_name, "Random Forest (+1min)")
+
+if __name__ == "__main__":
+    unittest.main()
