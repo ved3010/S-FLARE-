@@ -118,3 +118,40 @@ def extract_helios():
                     os.makedirs(date_dir, exist_ok=True)
 
                     # Extract inner zip
+                    data = oz.read(inner_name)
+                    temp_zip = date_dir / inner_name
+                    with open(temp_zip, 'wb') as f:
+                        f.write(data)
+
+                    with zipfile.ZipFile(temp_zip, 'r') as iz:
+                        # Extract only science files, flatten into date dir
+                        for member in iz.namelist():
+                            # Simplify: extract everything
+                            iz.extract(member, date_dir)
+
+                    os.remove(temp_zip)
+                    print(f"    Extracted: {date_str} -> {date_dir}")
+
+        except Exception as e:
+            print(f"    Error processing {outer_zip}: {e}")
+
+    print(f"  Done. HEL1OS data in: {HELIOS_OUT}")
+
+
+def main():
+    print("=" * 60)
+    print("Aditya-L1 PRADAN Data Extraction")
+    print("=" * 60)
+
+    extract_solexs()
+    extract_helios()
+
+    print("\n" + "=" * 60)
+    print("Extraction complete!")
+    print(f"  SoLEXS: {SOLEXS_OUT}/  (per-day subdirectories)")
+    print(f"  HEL1OS: {HELIOS_OUT}/  (per-day subdirectories)")
+    print("=" * 60)
+
+
+if __name__ == "__main__":
+    main()
