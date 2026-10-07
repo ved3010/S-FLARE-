@@ -248,3 +248,31 @@ def main():
                 nowcast_conf=nc_conf,
                 forecast_prob=fc_prob
             )
+            
+            # 5. Push to FastAPI
+            payload = {
+                'timestamp_utc': ts_str,
+                'telemetry': telemetry,
+                'features': features,
+                'status': status
+            }
+            
+            try:
+                r = requests.post(args.api_url, json=payload, timeout=2.0)
+                if r.status_code == 200:
+                    print(f"[{ts_str}] Tick processed. Status: {status['systemStatus']['state']} | Nowcast: {nc_class} | Forecast: {int(fc_prob*100)}%")
+                else:
+                    print(f"Error POSTing update to FastAPI: HTTP {r.status_code}")
+            except requests.exceptions.ConnectionError:
+                print(f"[{ts_str}] API server offline. Status: {status['systemStatus']['state']}")
+                
+            # Sleep remainder of interval
+            elapsed = time.time() - start_tick
+            sleep_time = max(0.01, tick_interval - elapsed)
+            time.sleep(sleep_time)
+            
+    except KeyboardInterrupt:
+        print("Pipeline execution stopped by user.")
+
+if __name__ == "__main__":
+    main()
