@@ -98,3 +98,23 @@ def init_forecast_weights():
     
     w_dense2 = generate_random_weights((32, 1), 0.1)
     b_dense2 = [-1.5] # Negative bias (low default prob)
+    
+    w_dense1[1][0] = 1.8 # HR trend channel -> dense output 0
+    w_dense2[0][0] = 1.5 # dense output 0 -> P(M+ flare)
+    
+    weights = {
+        'w_tcn1': w_tcn1, 'b_tcn1': b_tcn1,
+        'w_tcn2': w_tcn2, 'b_tcn2': b_tcn2,
+        'w_tcn3': w_tcn3, 'b_tcn3': b_tcn3,
+        'w_tcn4': w_tcn4, 'b_tcn4': b_tcn4,
+        'w_dense1': w_dense1, 'b_dense1': b_dense1,
+        'w_dense2': w_dense2, 'b_dense2': b_dense2
+    }
+    
+    with open("models/forecast_tcn_weights.json", "w") as f:
+        json.dump(weights, f, indent=2)
+    print("Saved Forecast weights to models/forecast_tcn_weights.json")
+
+if __name__ == "__main__":
+    init_nowcast_weights()
+    init_forecast_weights()
