@@ -1,0 +1,40 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import Landing from './components/Landing';
+import Header from './components/Header';
+import Dashboard from './components/Dashboard';
+import ImpactPanel from './components/ImpactPanel';
+import Replay from './components/Replay';
+import Catalog from './components/Catalog';
+import Metrics from './components/Metrics';
+import DataExplorer from './components/DataExplorer';
+import { initWebSocketConnection, requestNotificationPermission, useNotificationWatcher } from './lib/data';
+
+// ── Hash-based routing helpers ─────────────────────────────
+function getViewFromHash() {
+  const hash = window.location.hash.replace('#', '');
+  const valid = ['dashboard', 'impact', 'replay', 'catalog', 'metrics', 'explorer'];
+  return valid.includes(hash) ? hash : null;
+}
+
+function setHash(view) {
+  window.location.hash = view;
+}
+
+export default function App() {
+  // Read initial view from URL hash, default to 'dashboard'
+  const initialView = getViewFromHash() || 'dashboard';
+  // If we came from a hash, skip landing; otherwise show it
+  const hasHashOnLoad = useRef(!!window.location.hash);
+
+  const [showLanding, setShowLanding] = useState(!hasHashOnLoad.current);
+  const [view, setView] = useState(initialView);
+  const [activeTab, setActiveTab] = useState(initialView);
+  const [replayEvent, setReplayEvent] = useState(null);
+  const [time, setTime] = useState(new Date());
+  const [initDone, setInitDone] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+
+  // Watch flare class for automatic push notifications
+  useNotificationWatcher();
+
+  useEffect(() => {
