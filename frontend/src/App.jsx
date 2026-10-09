@@ -79,3 +79,38 @@ export default function App() {
     }, 180);
   }, [activeTab]);
 
+  const handleEnter = useCallback(() => {
+    setShowLanding(false);
+    setHash(view);
+  }, [view]);
+
+  if (showLanding) {
+    return <Landing onEnter={handleEnter} />;
+  }
+
+  const mainContent = (
+    <div className="flex-1 overflow-auto" style={{ padding: 'clamp(12px, 2vw, 24px)' }}>
+      {view === 'dashboard' && <Dashboard onNavigate={handleView} />}
+      {view === 'impact' && <ImpactPanel />}
+      {view === 'replay' && <Replay event={replayEvent} />}
+      {view === 'catalog' && <Catalog onReplay={e => { setReplayEvent(e); handleView('replay'); }} />}
+      {view === 'metrics' && <Metrics />}
+      {view === 'explorer' && <DataExplorer />}
+    </div>
+  );
+
+  return (
+    <>
+      {/* Main app shell */}
+      <div className="app-shell">
+        <Header view={activeTab} onView={handleView} time={time} onLogoClick={() => {
+          setShowLanding(true);
+          window.location.hash = '';
+        }} />
+        <div className={`flex-1 overflow-auto ${transitioning ? 'opacity-0 scale-[0.98]' : 'opacity-100 scale-100'} transition-all duration-200 ease-out`}>
+          {mainContent}
+        </div>
+      </div>
+    </>
+  );
+}
