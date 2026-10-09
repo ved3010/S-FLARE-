@@ -38,3 +38,44 @@ export default function App() {
   useNotificationWatcher();
 
   useEffect(() => {
+    if (!initDone) {
+      initWebSocketConnection();
+      // Request push notification permission after a short delay
+      setTimeout(() => requestNotificationPermission(), 3000);
+      setInitDone(true);
+    }
+    const id = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, [initDone]);
+
+  // Sync hash whenever view changes
+  useEffect(() => {
+    if (!showLanding) {
+      setHash(view);
+    }
+  }, [view, showLanding]);
+
+  // Listen for popstate (browser back/forward) to sync view
+  useEffect(() => {
+    const onHashChange = () => {
+      const v = getViewFromHash();
+      if (v && v !== activeTab) {
+        setActiveTab(v);
+        setView(v);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [activeTab]);
+
+  const handleView = useCallback((v) => {
+    if (v === activeTab) return;
+    setActiveTab(v);
+    setHash(v);  // update URL hash immediately
+    setTransitioning(true);
+    setTimeout(() => {
+      setView(v);
+      setTimeout(() => setTransitioning(false), 50);
+    }, 180);
+  }, [activeTab]);
+
