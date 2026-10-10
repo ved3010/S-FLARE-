@@ -158,3 +158,28 @@ def auto_retrain_loop(interval_hours=6, epochs=30, lr=0.001):
 
         # Check every 60 seconds
         time.sleep(60)
+
+
+def start_auto_retrain(interval_hours=6, epochs=30, lr=0.001, daemon=True):
+    """Start the auto-retrain background thread.
+
+    Call this from the FastAPI server's startup event.
+
+    Args:
+        interval_hours: How often to retrain (default 6)
+        epochs: Training epochs (default 30)
+        lr: Learning rate (default 0.001)
+        daemon: If True, thread exits when main process exits
+
+    Returns:
+        The background thread object
+    """
+    thread = threading.Thread(
+        target=auto_retrain_loop,
+        args=(interval_hours, epochs, lr),
+        daemon=daemon,
+        name="auto-retrain"
+    )
+    thread.start()
+    logger.info(f"Auto-retrain thread started (PID: {thread.ident})")
+    return thread
