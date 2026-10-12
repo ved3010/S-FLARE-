@@ -278,3 +278,38 @@ def export_forecast_weights(model, path="models/forecast_tcn_weights.json"):
         'w_tcn3': w_tcn3, 'b_tcn3': b_tcn3,
         'w_tcn4': w_tcn4, 'b_tcn4': b_tcn4,
         'w_dense1': w_dense1, 'b_dense1': b_dense1,
+        'w_dense2': w_dense2, 'b_dense2': b_dense2
+    }
+    
+    os.makedirs(os.path.dirname(os.path.join(project_root, path)), exist_ok=True)
+    with open(os.path.join(project_root, path), 'w') as f:
+        json.dump(weights, f, indent=2)
+    print("Forecast weights exported successfully!")
+
+# ----------------------------------------------------
+# 5. Main Loop
+# ----------------------------------------------------
+
+def main():
+    print("=" * 60)
+    print("ISRO Solar Flare Model Optimizer (PyTorch -> Pure Python Export)")
+    print("=" * 60)
+    
+    X_nc, y_nc, X_fc, y_fc = prepare_data()
+    
+    # Train
+    nc_model = train_nowcast(X_nc, y_nc, epochs=50)
+    fc_model = train_forecast(X_fc, y_fc, epochs=50)
+    
+    # Export
+    export_nowcast_weights(nc_model)
+    export_forecast_weights(fc_model)
+    
+    print("\n" + "=" * 60)
+    print("Training and Weight Translation Complete!")
+    print("The production JSON weights files have been updated.")
+    print("You can run python scripts/backtest.py to verify performance.")
+    print("=" * 60)
+
+if __name__ == "__main__":
+    main()
