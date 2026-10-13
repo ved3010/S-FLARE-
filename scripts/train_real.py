@@ -618,3 +618,78 @@ def main():
     # ── Step 1: Fetch/Load Data ────────────────────────────────────────
     print("\n[1/5] Loading data...")
     if args.source == "noaa":
+        records = fetch_noaa_goes_data()
+        if len(records) < 100:
+            print("  NOAA data limited -- falling back to mock + NOAA combined.")
+            mock_records = load_mock_data()
+            records = mock_records + records
+    else:
+        records = load_mock_data()
+
+    if not records:
+        print("  [ERROR] No data available. Exiting.")
+        sys.exit(1)
+
+    print(f"  Loaded {len(records)} telemetry records ({records[0]['time']} -> {records[-1]['time']})")
+    print(f"  Date range: {datetime.utcfromtimestamp(records[0]['time']).date()} -> "
+          f"{datetime.utcfromtimestamp(records[-1]['time']).date()}")
+
+    if args.no_train:
+        print("\n  [--no-train] Data loaded. Skipping training.")
+        return
+
+    # ── Step 2: Build Training Samples ─────────────────────────────────
+    print("\n[2/5] Building training samples...")
+    X_nc, y_nc, X_fc, y_fc = build_training_samples(records)
+
+    if not X_nc or not X_fc:
+        print("  [ERROR] Not enough data to build training samples.")
+        sys.exit(1)
+
+    # Count class distribution
+    nc_labels = np.array(y_nc)
+    fc_labels = np.array(y_fc)
+    print(f"  Nowcast samples: {len(X_nc)}  (QUIET={sum(nc_labels==0)}, "
+          f"ONSET={sum(nc_labels==1)}, PEAK={sum(nc_labels==2)}, DECAY={sum(nc_labels==3)})")
+    print(f"  Forecast samples: {len(X_fc)}  (M/X flares={sum(fc_labels==1)}, "
+          f"quiet={sum(fc_labels==0)})")
+
+    # ── Step 3: Initialize Models ──────────────────────────────────────
+    print("\n[3/5] Initializing PyTorch models...")
+    nowcast_model = NowcastCNN()
+    forecast_model = ForecastTCN()
+    total_nc_params = sum(p.numel() for p in nowcast_model.parameters())
+    total_fc_params = sum(p.numel() for p in forecast_model.parameters())
+    print(f"  NowcastCNN: {total_nc_params:,} parameters")
+    print(f"  ForecastTCN: {total_fc_params:,} parameters")
+
+    # ── Step 4: Train ──────────────────────────────────────────────────
+    print(f"\n[4/5] Training NowcastCNN ({args.epochs} epochs)...")
+    nowcast_model = train_nowcast(nowcast_model, X_nc, y_nc, n_epochs=args.epochs, lr=args.lr)
+
+    print(f"\n[4/5] Training ForecastTCN ({args.epochs} epochs)...")
+    forecast_model = train_forecast(forecast_model, X_fc, y_fc, n_epochs=args.epochs, lr=args.lr)
+
+    # ── Step 5: Export Weights ─────────────────────────────────────────
+    print("\n[5/5] Exporting trained weights...")
+    export_nowcast_weights(nowcast_model)
+    export_forecast_weights(forecast_model)
+
+    # ── Step 6: Verify ─────────────────────────────────────────────────
+    print("\n[Verify] Testing exported weights with pure-Python inference...")
+    verify_nowcast_export()
+    verify_forecast_export()
+
+    print("\n" + "=" * 60)
+    print("Training complete! Models updated:")
+    print("   - models/nowcast_cnn_weights.json")
+    print("   - models/forecast_tcn_weights.json")
+    print("=" * 60)
+    print("\nNext steps:")
+    print("   python pipeline/run.py --mode replay   # Test with trained models")
+    print("   python scripts/backtest.py              # Run backtest evaluation")
+    print()
+
+
+if __name__ == "__main__":
+    main()
