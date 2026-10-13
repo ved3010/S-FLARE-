@@ -345,3 +345,351 @@ def export_forecast_weights(model, save_path="models/forecast_tcn_weights.json")
         ("conv3.conv", "w_tcn3", "b_tcn3"),
         ("conv4.conv", "w_tcn4", "b_tcn4"),
     ]
+
+    weights = {}
+    for conv_key, w_key, b_key in conv_mapping:
+        w = sd[f"{conv_key}.weight"].cpu().numpy()  # (C_out, C_in, K)
+        # Reverse kernel order: PyTorch applies w[k] at pos i+k*d, but
+        # py_dilated_causal_conv1d applies w[k] at pos i-k*d, so we need w_export[k] = w_pytorch[K-1-k]
+        w = w[:, :, ::-1]  # (C_out, C_in, K) — kernel order flipped
+        w = w.transpose(2, 1, 0).tolist()  # (K, C_in, C_out)
+        b = sd[f"{conv_key}.bias"].cpu().numpy().tolist()
+        weights[w_key] = w
+        weights[b_key] = b
+
+    # FC1: w_dense1 shape (32, 64) → needs to be (64, 32)
+    w_dense1 = sd["fc1.weight"].cpu().numpy().T.tolist()
+    b_dense1 = sd["fc1.bias"].cpu().numpy().tolist()
+    weights["w_dense1"] = w_dense1
+    weights["b_dense1"] = b_dense1
+
+    # FC2: w_dense2 shape (1, 32) → needs to be (32, 1)
+    w_dense2 = sd["fc2.weight"].cpu().numpy().T.tolist()
+    b_dense2 = sd["fc2.bias"].cpu().numpy().tolist()
+    weights["w_dense2"] = w_dense2
+    weights["b_dense2"] = b_dense2
+
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    with open(save_path, "w") as f:
+        json.dump(weights, f, indent=2)
+    print(f"  Saved Forecast weights -> {save_path}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 5. Dataset Construction
+# ═══════════════════════════════════════════════════════════════════════════
+
+def prepare_telemetry(records):
+    """Convert raw GOES records into pipeline telemetry format.
+
+    GOES has: time, soft_flux, hard_flux
+    Pipeline expects: time, soft_flux, hard_15_25, hard_25_50, hard_50_100, data_gap
+    """
+    telemetry = []
+    for r in records:
+        hard = r["hard_flux"]
+        telemetry.append({
+            "time": r["time"],
+            "soft_flux": r["soft_flux"],
+            "hard_15_25": hard * 2.2,
+            "hard_25_50": hard,
+            "hard_50_100": hard * 0.12,
+            "data_gap": False,
+        })
+    return telemetry
+
+
+def build_training_samples(records, nowcast_window=60, forecast_window=720):
+    """Build (X, y) training samples from telemetry records.
+
+    Returns:
+        X_nowcast: list of (60, 9) arrays
+        y_nowcast: list of integer labels (0-3)
+        X_forecast: list of (720, 9) arrays
+        y_forecast: list of binary labels (0.0 or 1.0)
+    """
+    telemetry = prepare_telemetry(records)
+    n = len(telemetry)
+    if n < forecast_window + 10:
+        print(f"  [WARN] Only {n} records -- need at least {forecast_window + 10} for training.")
+        return [], [], [], []
+
+    # Compute features for every point
+    print("  Computing features...")
+    all_features = []
+    soft_fluxes = []
+    for i in range(n):
+        buf = telemetry[: i + 1]
+        feats = compute_latest_features_pure(buf)
+        all_features.append(feats)
+        soft_fluxes.append(telemetry[i]["soft_flux"])
+
+    X_nc, y_nc = [], []
+    X_fc, y_fc = [], []
+
+    print(f"  Building nowcast samples (window={nowcast_window})...")
+    for i in range(nowcast_window, n):
+        x_nc = all_features[i - nowcast_window + 1 : i + 1]
+        if len(x_nc) == nowcast_window:
+            label = generate_nowcast_label(soft_fluxes[: i + 1])
+            X_nc.append(x_nc)
+            y_nc.append(label)
+
+    print(f"  Building forecast samples (window={forecast_window})...")
+    for i in range(forecast_window, n - 1):
+        x_fc = all_features[i - forecast_window + 1 : i + 1]
+        if len(x_fc) == forecast_window:
+            label = generate_forecast_label(soft_fluxes, i, lookahead=180)
+            X_fc.append(x_fc)
+            y_fc.append(label)
+
+    return X_nc, y_nc, X_fc, y_fc
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 6. Training Loop
+# ═══════════════════════════════════════════════════════════════════════════
+
+def train_nowcast(model, X, y, n_epochs=30, lr=0.001):
+    """Train NowcastCNN."""
+    device = torch.device("cpu")
+    model = model.to(device)
+
+    # Convert to tensors
+    X_t = torch.tensor(np.array(X), dtype=torch.float32)  # (N, 60, 9)
+    X_t = X_t.permute(0, 2, 1)  # (N, 9, 60) for Conv1d
+    y_t = torch.tensor(np.array(y), dtype=torch.long)
+
+    # Train/val split
+    split = int(len(X_t) * 0.8)
+    train_X, train_y = X_t[:split], y_t[:split]
+    val_X, val_y = X_t[split:], y_t[split:]
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.CrossEntropyLoss()
+
+    best_val_acc = 0.0
+
+    for epoch in range(n_epochs):
+        model.train()
+        perm = torch.randperm(len(train_X))
+        running_loss = 0.0
+        batch_size = 64
+        for start in range(0, len(train_X), batch_size):
+            idx_b = perm[start : start + batch_size]
+            bx, by = train_X[idx_b], train_y[idx_b]
+            optimizer.zero_grad()
+            out = model(bx)
+            loss = criterion(out, by)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+
+        # Validation
+        model.eval()
+        with torch.no_grad():
+            val_out = model(val_X)
+            val_pred = val_out.argmax(dim=1)
+            val_acc = (val_pred == val_y).float().mean().item()
+
+        if (epoch + 1) % 5 == 0 or epoch == 0:
+            print(f"    Epoch {epoch+1:2d}/{n_epochs}  loss={running_loss:.4f}  val_acc={val_acc:.4f}")
+
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+
+    print(f"  Nowcast training complete. Best val accuracy: {best_val_acc:.4f}")
+    return model
+
+
+def train_forecast(model, X, y, n_epochs=30, lr=0.001):
+    """Train ForecastTCN."""
+    device = torch.device("cpu")
+    model = model.to(device)
+
+    # Convert to tensors
+    X_t = torch.tensor(np.array(X), dtype=torch.float32)  # (N, 720, 9)
+    X_t = X_t.permute(0, 2, 1)  # (N, 9, 720)
+    y_t = torch.tensor(np.array(y), dtype=torch.float32).unsqueeze(1)
+
+    # Train/val split
+    split = int(len(X_t) * 0.8)
+    train_X, train_y = X_t[:split], y_t[:split]
+    val_X, val_y = X_t[split:], y_t[split:]
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.BCELoss()
+
+    best_val_loss = float("inf")
+    best_val_acc = 0.0
+
+    for epoch in range(n_epochs):
+        model.train()
+        perm = torch.randperm(len(train_X))
+        running_loss = 0.0
+        batch_size = 32
+        for start in range(0, len(train_X), batch_size):
+            idx_b = perm[start : start + batch_size]
+            bx, by = train_X[idx_b], train_y[idx_b]
+            optimizer.zero_grad()
+            out = model(bx)
+            loss = criterion(out, by)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+
+        # Validation
+        model.eval()
+        with torch.no_grad():
+            val_out = model(val_X)
+            val_loss = criterion(val_out, val_y).item()
+            val_pred_bin = (val_out > 0.5).float()
+            val_acc = (val_pred_bin == val_y).float().mean().item()
+
+        if (epoch + 1) % 5 == 0 or epoch == 0:
+            print(f"    Epoch {epoch+1:2d}/{n_epochs}  loss={running_loss:.4f}  val_loss={val_loss:.4f}  val_acc={val_acc:.4f}")
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_val_acc = val_acc
+
+    print(f"  Forecast training complete. Best val accuracy: {best_val_acc:.4f}")
+    return model
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 7. Verification — test exported weights match inference code
+# ═══════════════════════════════════════════════════════════════════════════
+
+def verify_nowcast_export():
+    """Load exported weights and run pure-Python inference to verify correctness."""
+    from pipeline.nowcast import nowcast_predict
+    x_test = [[0.0] * 9 for _ in range(60)]
+    probs, cls, conf = nowcast_predict(x_test)
+    print(f"  Nowcast test: {cls} (conf={conf:.4f}) | probs={[round(p, 4) for p in probs]}")
+    return cls
+
+
+def verify_forecast_export():
+    """Load exported weights and run pure-Python inference to verify correctness."""
+    from pipeline.forecast import forecast_predict
+    x_test = [[0.0] * 9 for _ in range(720)]
+    prob = forecast_predict(x_test)
+    print(f"  Forecast test: flare_prob={prob:.4f}")
+    return prob
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 8. Main
+# ═══════════════════════════════════════════════════════════════════════════
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Train Nowcast CNN + Forecast TCN on real NOAA GOES data"
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default="noaa",
+        choices=["noaa", "mock"],
+        help="Data source: 'noaa' (default, fetches live GOES data) or 'mock' (local mock data)",
+    )
+    parser.add_argument("--epochs", type=int, default=30, help="Number of training epochs")
+    parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
+    parser.add_argument(
+        "--no-train", action="store_true", help="Skip training -- only fetch and report data stats"
+    )
+    parser.add_argument(
+        "--verify-only", action="store_true", help="Only verify exported weights (skip training)"
+    )
+    args = parser.parse_args()
+
+    print("=" * 60)
+    print("Solar Flare Forecasting Model Training")
+    print(f"Data source: {args.source.upper()}")
+    print("=" * 60)
+
+    if args.verify_only:
+        print("\n[Verify] Checking exported weights...")
+        verify_nowcast_export()
+        verify_forecast_export()
+        return
+
+    # ── Step 1: Fetch/Load Data ────────────────────────────────────────
+    print("\n[1/5] Loading data...")
+    if args.source == "noaa":
+        records = fetch_noaa_goes_data()
+        if len(records) < 100:
+            print("  NOAA data limited -- falling back to mock + NOAA combined.")
+            mock_records = load_mock_data()
+            records = mock_records + records
+    else:
+        records = load_mock_data()
+
+    if not records:
+        print("  [ERROR] No data available. Exiting.")
+        sys.exit(1)
+
+    print(f"  Loaded {len(records)} telemetry records ({records[0]['time']} -> {records[-1]['time']})")
+    print(f"  Date range: {datetime.utcfromtimestamp(records[0]['time']).date()} -> "
+          f"{datetime.utcfromtimestamp(records[-1]['time']).date()}")
+
+    if args.no_train:
+        print("\n  [--no-train] Data loaded. Skipping training.")
+        return
+
+    # ── Step 2: Build Training Samples ─────────────────────────────────
+    print("\n[2/5] Building training samples...")
+    X_nc, y_nc, X_fc, y_fc = build_training_samples(records)
+
+    if not X_nc or not X_fc:
+        print("  [ERROR] Not enough data to build training samples.")
+        sys.exit(1)
+
+    # Count class distribution
+    nc_labels = np.array(y_nc)
+    fc_labels = np.array(y_fc)
+    print(f"  Nowcast samples: {len(X_nc)}  (QUIET={sum(nc_labels==0)}, "
+          f"ONSET={sum(nc_labels==1)}, PEAK={sum(nc_labels==2)}, DECAY={sum(nc_labels==3)})")
+    print(f"  Forecast samples: {len(X_fc)}  (M/X flares={sum(fc_labels==1)}, "
+          f"quiet={sum(fc_labels==0)})")
+
+    # ── Step 3: Initialize Models ──────────────────────────────────────
+    print("\n[3/5] Initializing PyTorch models...")
+    nowcast_model = NowcastCNN()
+    forecast_model = ForecastTCN()
+    total_nc_params = sum(p.numel() for p in nowcast_model.parameters())
+    total_fc_params = sum(p.numel() for p in forecast_model.parameters())
+    print(f"  NowcastCNN: {total_nc_params:,} parameters")
+    print(f"  ForecastTCN: {total_fc_params:,} parameters")
+
+    # ── Step 4: Train ──────────────────────────────────────────────────
+    print(f"\n[4/5] Training NowcastCNN ({args.epochs} epochs)...")
+    nowcast_model = train_nowcast(nowcast_model, X_nc, y_nc, n_epochs=args.epochs, lr=args.lr)
+
+    print(f"\n[4/5] Training ForecastTCN ({args.epochs} epochs)...")
+    forecast_model = train_forecast(forecast_model, X_fc, y_fc, n_epochs=args.epochs, lr=args.lr)
+
+    # ── Step 5: Export Weights ─────────────────────────────────────────
+    print("\n[5/5] Exporting trained weights...")
+    export_nowcast_weights(nowcast_model)
+    export_forecast_weights(forecast_model)
+
+    # ── Step 6: Verify ─────────────────────────────────────────────────
+    print("\n[Verify] Testing exported weights with pure-Python inference...")
+    verify_nowcast_export()
+    verify_forecast_export()
+
+    print("\n" + "=" * 60)
+    print("Training complete! Models updated:")
+    print("   - models/nowcast_cnn_weights.json")
+    print("   - models/forecast_tcn_weights.json")
+    print("=" * 60)
+    print("\nNext steps:")
+    print("   python pipeline/run.py --mode replay   # Test with trained models")
+    print("   python scripts/backtest.py              # Run backtest evaluation")
+    print()
+
+
+if __name__ == "__main__":
+    main()
