@@ -1048,3 +1048,126 @@ export default function Landing({ onEnter }) {
         <Reveal delay={300}>
           <div className="demo-steps">
             <div className="demo-step">
+              <span className="demo-step-num">1</span>
+              <span className="demo-step-text">Connect to live Aditya-L1 data stream</span>
+            </div>
+            <div className="demo-step-arrow">→</div>
+            <div className="demo-step">
+              <span className="demo-step-num">2</span>
+              <span className="demo-step-text">AI classifies flux in real-time</span>
+            </div>
+            <div className="demo-step-arrow">→</div>
+            <div className="demo-step">
+              <span className="demo-step-num">3</span>
+              <span className="demo-step-text">Alerts triggered for M/X-class events</span>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── TECH STACK ── */}
+      <section className="landing-section" id="stack">
+        <Reveal>
+          <div className="section-header">
+            <span className="section-tag">04</span>
+            <h2 className="section-title">Tech Stack</h2>
+            <p className="section-desc">
+              Built with modern tools for performance, reliability, and real-time processing.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="stack-grid">
+          {[
+            { cat: 'Frontend', items: ['React', 'Vite', 'Tailwind CSS', 'WebSocket'] },
+            { cat: 'Backend', items: ['FastAPI', 'Python', 'WebSockets', 'JSON'] },
+            { cat: 'ML/AI', items: ['PyTorch', 'CNN Architecture', 'TCN Network', 'NumPy'] },
+            { cat: 'Data', items: ['Aditya-L1', 'SoLEXS', 'HEL1OS', 'L1 Telemetry'] },
+          ].map((col, i) => (
+            <Reveal key={i} delay={i * 80}>
+              <div className="stack-col">
+                <h3 className="stack-cat">{col.cat}</h3>
+                <ul className="stack-items">
+                  {col.items.map((item, j) => (
+                    <li key={j} className="stack-item">{item}</li>
+                  ))}
+                </ul>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ── HOW TO USE ── */}
+      <section className="landing-section" id="usage">
+        <Reveal>
+          <div className="section-header">
+            <span className="section-tag">05</span>
+            <h2 className="section-title">Getting Started</h2>
+            <p className="section-desc">
+              Three steps to start monitoring solar flares with Aditya-L1 data.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="usage-grid">
+          {[
+            {
+              num: '01',
+              title: 'Clone & Install',
+              code: 'pip install -r requirements.txt\npython -m uvicorn api.main:app --reload',
+            },
+            {
+              num: '02',
+              title: 'Start the Pipeline',
+              code: 'python pipeline/run.py --mode realtime\n# Ingests live Aditya-L1 telemetry',
+            },
+            {
+              num: '03',
+              title: 'Launch Dashboard',
+              code: 'cd frontend && npm run dev\n# Open http://localhost:5173',
+            },
+          ].map((u, i) => (
+            <Reveal key={i} delay={i * 120}>
+              <TiltCard className="usage-card" glare>
+                <span className="usage-num">{u.num}</span>
+                <h3 className="usage-title">{u.title}</h3>
+                <pre className="usage-code"><code>{u.code}</code></pre>
+              </TiltCard>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA FOOTER ── */}
+      <section className="landing-section landing-cta-section">
+        <Reveal>
+          <div className="cta-block">
+            <h2 className="cta-title">Ready to Monitor Solar Flares?</h2>
+            <p className="cta-desc">
+              Built for ISRO's Space Science Division. Real-time deep learning analysis
+              of Aditya-L1 satellite data.
+            </p>
+            <div className="landing-ctas cta-buttons">
+              <MagneticBtn className={`landing-btn-primary ${entering ? 'entering' : ''}`} onClick={handleEnter}>
+                Launch Dashboard
+              </MagneticBtn>
+            </div>
+          </div>
+        </Reveal>
+
+        <div className="landing-footer">
+          <div className="footer-left">
+            <span className="footer-brand">SOLAR FLARE FORECASTING</span>
+            <span className="footer-copy">Aditya-L1 SoLEXS + HEL1OS Telemetry</span>
+          </div>
+          <div className="footer-right">
+            <span className="footer-tech">FastAPI · React · PyTorch</span>
+          </div>
+        </div>
+      </section>
+
+      {entering && <div className="landing-exit-overlay" />}
+    </div>
+  );
+}
