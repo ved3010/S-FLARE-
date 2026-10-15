@@ -98,3 +98,33 @@ export default function Dashboard({ onNavigate }) {
         <HeroCard tag="+2 Min Forecast" value={f2Value} sub={f2 ? `${f2.activity} · baseline` : 'Forecast unavailable'} color="#F87171" delay={0.14} />
         <HeroCard tag="Peak Flux" value={fmtFlux(nowcast.peakFlux)} sub="W/m²" delay={0.18} />
         <HeroCard tag="Hardness Ratio" value={hardnessRatio.current.toFixed(4)} badge={hardnessRatio.preFlareSignal ? `⚠ +${hardnessRatio.minutesEarly}m` : undefined} color={hardnessRatio.preFlareSignal ? '#FBBF24' : ''} delay={0.22} />
+      </div>
+
+      {/* ===== IMPACT SUMMARY STRIP ===== */}
+      <ImpactStrip onNavigate={onNavigate} />
+
+      {/* ===== MAIN GRID: Chart + Status ===== */}
+      <div className="premium-dash-grid">
+        <div className="dash-card dash-card-delay-1">
+          <FluxChart data={fluxData} range={range} onRange={setRange} />
+        </div>
+        <div className="dash-card dash-card-delay-2">
+          <StatusBlock />
+        </div>
+      </div>
+
+      {/* ===== BOTTOM GRID ===== */}
+      <div className="premium-dash-bottom">
+        <div className="dash-card dash-card-delay-3">
+          <HardnessMeter data={hardnessRatio} fluxData={fluxData} />
+        </div>
+        <div className="dash-card dash-card-delay-3">
+          <ActualVsPredictedCard />
+        </div>
+        <div className="dash-card dash-card-delay-3">
+          <DataSourcePanel />
+        </div>
+      </div>
+    </div>
+  );
+}
