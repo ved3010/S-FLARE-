@@ -158,3 +158,47 @@ export default function DataExplorer() {
                 <span className="text-sm font-bold text-red-400">{summary.flareEventCount} Flare</span>
                 <span className="text-sm font-bold text-emerald-400">{summary.nonFlareEventCount} Quiet</span>
               </div>
+            </div>
+
+            <div className="dash-card p-4 font-mono">
+              <span className="text-[9px] uppercase tracking-widest text-white/40 font-bold block mb-1">COLUMNS DETECTED</span>
+              <span className="text-sm font-bold text-sky-400">{summary.columnNames.length} Features</span>
+              <span className="text-[9px] text-white/40 block mt-1">{summary.columnNames.join(', ')}</span>
+            </div>
+          </div>
+
+          {/* Sample Preview Table */}
+          <div className="dash-card p-5 font-mono">
+            <div className="dash-card-header-left mb-4">
+              <div className="dash-card-bar" style={{ background: '#38BDF8' }} />
+              <span className="dash-card-title">Dataset Preview (First 10 Rows)</span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead>
+                  <tr className="border-b border-white/10 text-white/40 text-[9px] uppercase">
+                    {summary.columnNames.map((col) => (
+                      <th key={col} className="py-2 px-3 font-bold">{col}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {summary.samplePreview.map((row, i) => (
+                    <tr key={i} className="hover:bg-white/[0.02]">
+                      {summary.columnNames.map((col) => (
+                        <td key={col} className="py-2 px-3 text-white/80">
+                          {typeof row[col] === 'number' ? row[col].toExponential(3) : String(row[col])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
