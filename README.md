@@ -85,3 +85,50 @@ The repository includes support for multiple Machine Learning & Deep Learning mo
 
 ---
 
+## 7. How to Run
+
+### Backend
+```powershell
+# 1. Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Launch FastAPI server
+python -m uvicorn api.main:app --reload --port 8000
+```
+
+### Frontend
+```powershell
+# 1. Navigate to frontend directory
+cd frontend
+
+# 2. Install npm packages
+npm install
+
+# 3. Launch Vite development server
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+---
+
+## 8. Automated Test Suite
+
+Run the unit test suite to verify pipeline functionality:
+```powershell
+python -m unittest tests/test_pipeline.py
+python -m unittest tests/test_short_term_horizons.py
+```
+
+The test suite validates data alignment, 9-feature calculation, timestamp-based target horizons, missing target handling, and short-term forecast generation.
+
+---
+
+## 9. Limitations & Future Work
+
+1. **Telemetry Feed**: The bundled data is sample replay data. Live operational integration requires direct API streaming from ISRO PRADAN / ISSDC nodes.
+2. **Physical Flux Calibration**: HEL1OS count rates require validated response matrices for absolute physical flux conversion.
+3. **Multi-Event Model Tuning**: Ongoing validation on larger labelled multi-flare Aditya-L1 event catalogs will continue to refine operational precision.
