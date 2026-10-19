@@ -38,3 +38,97 @@ The system is designed around India's flagship solar space observatory **Aditya-
    - `hardness_ratio`: Spectral hardness ratio $\frac{\text{Hard Flux}}{\text{Soft Flux} \times 10^8} \times 0.035$.
    - `hr_slope_10m`: 10-minute rolling slope of the hardness ratio.
    - `hr_zscore`: 30-minute rolling Z-score of spectral hardness.
+   - `flux_derivative_60s`: 60-second rate of change in soft X-ray flux.
+   - `neupert_residual`: Deviation from Neupert-effect expectations ($|\text{Hard Rate} - \frac{dF}{dt} \times 1.2 \times 10^{10}|$).
+   - `time_since_last_c_flare`: Time elapsed (in minutes) since the last C-class or higher flare.
+   - `solar_activity_index`: Number of flare events recorded in the preceding 6 hours.
+
+---
+
+## 4. +1 Minute and +2 Minute Horizon Target Generation
+
+Target generation relies strictly on **timestamp windows**, rather than assuming 1 row equals 1 minute:
+- **+1 Minute Horizon**: Evaluated against future observation window `[t + 30s, t + 60s]`.
+- **+2 Minute Horizon**: Evaluated against future observation window `[t + 90s, t + 120s]`.
+- **Target Leakage Prevention**: Incomplete future windows (near the end of a time series) are explicitly set to `NaN` and excluded from model training/evaluation.
+
+---
+
+## 5. Machine Learning Models & Evaluation
+
+The repository includes support for multiple Machine Learning & Deep Learning model architectures:
+- **Random Forest Classifier**
+- **Support Vector Machines (SVM)**
+- **XGBoost / Gradient Boosted Trees**
+- **LSTM (Long Short-Term Memory Neural Network)**
+- **TCN (Temporal Convolutional Network)**
+
+### Leakage Prevention
+- **Chronological Splitting**: Data is split sequentially (70% Train, 15% Validation, 15% Test) without random shuffling.
+- **Independent Fitting**: Scalers and feature transformers are fitted exclusively on training data.
+
+---
+
+## 6. System Architecture & API Endpoints
+
+### Backend (FastAPI on Port 8000)
+- `GET /api/status`: Mission status, current nowcast, and +1m/+2m predictions.
+- `GET /api/short-term-forecast`: Short-term forecasting payload with target timestamps, predicted flux, and confidence scores.
+- `GET /api/actual-vs-predicted`: Verification comparison between actual observed flux and historical +1m/+2m predictions.
+- `GET /api/data-quality`: Live telemetry metadata, missing values, duplicates, and sampling cadence.
+- `WS /ws/live`: Real-time WebSocket telemetry stream.
+
+### Frontend (React + Vite on Port 5173)
+- Scientific Glassmorphism UI styled with Vanilla CSS and Tailwind utilities.
+- Interactive Recharts Soft & Hard X-ray time-series visualization.
+- Real-time Nowcast, +1m Forecast, and +2m Forecast status cards.
+
+---
+
+## 7. How to Run
+
+### Backend
+```powershell
+# 1. Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Launch FastAPI server
+python -m uvicorn api.main:app --reload --port 8000
+```
+
+### Frontend
+```powershell
+# 1. Navigate to frontend directory
+cd frontend
+
+# 2. Install npm packages
+npm install
+
+# 3. Launch Vite development server
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+---
+
+## 8. Automated Test Suite
+
+Run the unit test suite to verify pipeline functionality:
+```powershell
+python -m unittest tests/test_pipeline.py
+python -m unittest tests/test_short_term_horizons.py
+```
+
+The test suite validates data alignment, 9-feature calculation, timestamp-based target horizons, missing target handling, and short-term forecast generation.
+
+---
+
+## 9. Limitations & Future Work
+
+1. **Telemetry Feed**: The bundled data is sample replay data. Live operational integration requires direct API streaming from ISRO PRADAN / ISSDC nodes.
+2. **Physical Flux Calibration**: HEL1OS count rates require validated response matrices for absolute physical flux conversion.
+3. **Multi-Event Model Tuning**: Ongoing validation on larger labelled multi-flare Aditya-L1 event catalogs will continue to refine operational precision.
