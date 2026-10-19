@@ -138,3 +138,51 @@ export default function ModelExplanation() {
         </div>
 
         {/* Feature importance bars */}
+        <div className="space-y-3">
+          {sortedFeatures.map((feat, i) => (
+            <FeatureBar key={i} {...feat} />
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-2 border-t border-white/[0.04] mt-3">
+          <span className="text-[6px] font-mono text-white/15">Live explanation · Updated on flare class change</span>
+          <span className="text-[6px] font-mono text-white/15">SHAP-inspired feature attribution</span>
+        </div>
+      </div>
+
+      {/* Educational XAI Explanation Card */}
+      <div className="lg:col-span-2 bg-white/[0.015] border border-white/[0.04] rounded-xl p-4 space-y-3 flex flex-col justify-between">
+        <div>
+          <div className="text-[10px] font-mono font-bold text-white/80 border-b border-white/[0.06] pb-1.5 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#A78BFA] animate-pulse" />
+            <span>Explainable AI (XAI)</span>
+          </div>
+          <p className="text-[9px] font-mono text-white/50 leading-relaxed mt-2">
+            Deep learning networks (like our TCN and CNN) are often seen as "black boxes". Explainable AI (XAI) exposes their decision-making logic by calculating the contribution (SHAP score) of each input telemetry feature.
+          </p>
+        </div>
+        <div className="space-y-2 border-t border-white/[0.04] pt-3">
+          <div className="space-y-1">
+            <span className="text-[8px] font-mono font-bold text-[#A78BFA] block">SPECTRAL HARDNESS:</span>
+            <span className="text-[8.5px] font-mono text-white/40 leading-relaxed block">
+              Key pre-flare indicator. Flaring coronal loops accelerate electrons, causing hard X-ray counts to spike *before* soft thermal X-rays peak.
+            </span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[8px] font-mono font-bold text-[#A78BFA] block">RISE RATE & Z-SCORE:</span>
+            <span className="text-[8.5px] font-mono text-white/40 leading-relaxed block">
+              Detects sudden flux jumps. An elevated Z-score indicates statistical anomaly against rolling quiet-sun baseline fluctuations.
+            </span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[8px] font-mono font-bold text-[#A78BFA] block">TCN TEMPORAL CONTEXT:</span>
+            <span className="text-[8.5px] font-mono text-white/40 leading-relaxed block">
+              Dilated causal convolutions capture multi-scale history over a 3-hour window to project flaring probability.
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
