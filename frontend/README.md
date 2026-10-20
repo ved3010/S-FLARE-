@@ -48,3 +48,36 @@ npm run build
 ```
 
 ## Project Structure
+
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── Header.jsx          — Navigation + UTC clock
+│   │   ├── StatusPanel.jsx     — Nowcast + Forecast blocks
+│   │   ├── FluxChart.jsx       — X-ray flux SVG chart
+│   │   ├── HardnessRatioPanel.jsx — Spectral hardness trajectory
+│   │   ├── AlertLog.jsx        — Real-time alert feed
+│   │   ├── EventCatalog.jsx    — Sortable event table
+│   │   ├── MetricsPage.jsx     — Backtesting metrics
+│   │   └── ReplayMode.jsx      — Historical event replay
+│   ├── data/
+│   │   └── mockData.js         — Simulated solar flare data
+│   ├── hooks/
+│   │   └── useTime.js          — UTC time formatting
+│   ├── App.jsx                 — Main layout
+│   ├── main.jsx                — Entry point
+│   └── index.css               — Global styles
+├── tailwind.config.js
+└── vite.config.js
+```
+
+## References
+
+- [Aditya-L1 PRADAN Data](https://pradan.issdc.gov.in/al1)
+- [NOAA SWPC Flare Catalog](https://www.ncei.noaa.gov/products/space-weather)
+- [GOES XRS Data](https://www.ncei.noaa.gov/data/goes-space-environment-monitor/)
+
+---
+
+*SolFlare — Bharatiya Antariksh Hackathon 2025*
