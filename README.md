@@ -128,3 +128,9 @@ python -m unittest tests/test_short_term_horizons.py
 The test suite validates data alignment, 9-feature calculation, timestamp-based target horizons, missing target handling, and short-term forecast generation.
 
 ---
+
+## 9. Limitations & Future Work
+
+1. **Telemetry Feed**: The bundled data is sample replay data. Live operational integration requires direct API streaming from ISRO PRADAN / ISSDC nodes.
+2. **Physical Flux Calibration**: HEL1OS count rates require validated response matrices for absolute physical flux conversion.
+3. **Multi-Event Model Tuning**: Ongoing validation on larger labelled multi-flare Aditya-L1 event catalogs will continue to refine operational precision.
